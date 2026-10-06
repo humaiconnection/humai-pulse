@@ -20,7 +20,10 @@
   .sub{color:var(--mut); font-size:13px; margin:2px 0 18px}
   .sub .live{display:inline-block; width:8px; height:8px; border-radius:50%; background:var(--acc); margin-right:6px; animation:pulse 1.6s infinite}
   @keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
-  .grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); gap:14px}
+  .tabs{position:sticky; top:0; z-index:5; display:flex; gap:8px; flex-wrap:wrap; padding:10px 0; margin-bottom:16px; background:var(--bg)}
+  .tab{padding:10px 14px; border-radius:10px; border:1px solid var(--line); background:var(--panel); color:var(--mut); font-size:13px; font-weight:700; cursor:pointer}
+  .tab:hover{border-color:var(--acc); color:var(--txt)}
+  .tab.active{background:var(--acc); border-color:var(--acc); color:#0a0f06}
   .card{background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:16px; display:flex; flex-direction:column}
   .card h2{font-size:15px; margin-bottom:4px; display:flex; align-items:center; gap:8px}
   .card h2 .ic{font-size:18px}
@@ -57,7 +60,8 @@
     <div><h1>humAi <span>Pulse</span></h1></div>
   </header>
   <div class="sub"><span class="live"></span><span id="dateline"></span> &middot; curated for the curious &middot; weather updates live</div>
-  <div class="grid" id="grid"></div>
+  <div class="tabs" id="tabs"></div>
+  <div id="content"></div>
   <footer>
     Built by humAi &middot; Data baked in at build time except weather, which is live via Open-Meteo.<br>
     <a href="https://x.com/humAi_cOnX">@humAi_cOnX</a> on X
@@ -96,7 +100,7 @@ var SECTIONS = [
     items: [
       { t: "<span class='rank'>1</span>Taylor Swift — “Patient Zero”", u: "https://www.billboard.com/charts/hot-100/", m: "New #1 &middot; her 16th chart-topper" },
       { t: "<span class='rank'>2</span>Ella Langley — “Choosin' Texas”", u: "https://www.billboard.com/charts/hot-100/", m: "Down from #1 after a historic 24-week run" },
-      { t: "<span class='rank'>3</span>Taylor Swift — “Cleveland!”", u: "https://www.billboard.com/charts/hot-100/", m: "Encore deluxe takes 4 of the top 5" },
+      { t: "<span class='rank'>3</span>Taylor Swift — “Cleveland!”", u: "https://www.billboard.com/charts/hot-100/", m: "" },
       { t: "<span class='rank'>4</span>Taylor Swift — “Babylon”", u: "https://www.billboard.com/charts/hot-100/", m: "" },
       { t: "<span class='rank'>5</span>Taylor Swift — “Pink Clouding”", u: "https://www.billboard.com/charts/hot-100/", m: "" } ],
     foot: "<a href='https://www.billboard.com/charts/hot-100/'>Full Billboard Hot 100 →</a>" },
@@ -113,33 +117,37 @@ var WX = { zip:"62812", label:"Carlyle, IL", temp:"52°F", cond:"Sunny", humidit
 var WMO = {0:"Clear sky",1:"Mostly clear",2:"Partly cloudy",3:"Overcast",45:"Foggy",48:"Icy fog",51:"Light drizzle",53:"Drizzle",55:"Heavy drizzle",56:"Freezing drizzle",57:"Freezing drizzle",61:"Light rain",63:"Rain",65:"Heavy rain",66:"Freezing rain",67:"Freezing rain",71:"Light snow",73:"Snow",75:"Heavy snow",77:"Snow grains",80:"Light showers",81:"Showers",82:"Violent showers",85:"Snow showers",86:"Snow showers",95:"Thunderstorm",96:"Storm + hail",99:"Storm + hail"};
 function wmo(c){ return WMO[c] || "—"; }
 function compass(d){ var dirs=["N","NNE","NE","ENE","E","ESE","SE","SSE","S","SSW","SW","WSW","W","WNW","NW","NNW"]; return dirs[Math.round(d/22.5)%16]; }
-function render(){
-  var g = document.getElementById('grid');
-  var html = SECTIONS.map(function(s){
-    return '<div class="card"><h2><span class="ic">'+s.icon+'</span>'+s.title+'</h2>'
-      + '<div class="blurb">'+s.blurb+'</div>'
-      + s.items.map(function(it){
-          return '<a class="item" href="'+it.u+'" target="_blank" rel="noopener"><div class="t">'+it.t+'</div>'
-            + (it.m ? '<div class="m">'+it.m+'</div>' : '') + '</a>';
-        }).join('')
-      + (s.foot ? '<div class="foot">'+s.foot+'</div>' : '')
-      + '</div>';
-  }).join('');
-  html += '<div class="card"><h2><span class="ic">⛅</span>Weather</h2>'
-    + '<div class="blurb" id="wxlabel">'+WX.label+' '+WX.zip+' — live via Open-Meteo</div>'
-    + '<div class="wx-now"><div class="wx-temp" id="wxtemp">'+WX.temp+'</div><div class="wx-cond" id="wxcond">'+WX.cond+'</div></div>'
-    + '<div class="wx-rows" id="wxrows">'
+function currentTab(){
+  var h = (location.hash || "").replace("#","");
+  if (h === "wx") return "wx";
+  for (var i = 0; i < SECTIONS.length; i++) if (SECTIONS[i].id === h) return h;
+  return "x";
+}
+function sectionCard(s){
+  return '<div class="card"><h2><span class="ic">'+s.icon+'</span>'+s.title+'</h2>'
+    + '<div class="blurb">'+s.blurb+'</div>'
+    + s.items.map(function(it){
+        return '<a class="item" href="'+it.u+'" target="_blank" rel="noopener"><div class="t">'+it.t+'</div>'
+          + (it.m ? '<div class="m">'+it.m+'</div>' : '') + '</a>';
+      }).join('')
+    + (s.foot ? '<div class="foot">'+s.foot+'</div>' : '')
+    + '</div>';
+}
+function weatherCard(){
+  return '<div class="card"><h2><span class="ic">⛅</span>Weather</h2>'
+    + '<div class="blurb">'+WX.label+' '+WX.zip+' — live via Open-Meteo</div>'
+    + '<div class="wx-now"><div class="wx-temp">'+WX.temp+'</div><div class="wx-cond">'+WX.cond+'</div></div>'
+    + '<div class="wx-rows">'
     + '<div>Humidity <b>'+WX.humidity+'</b> &middot; Wind <b>'+WX.wind+'</b></div>'
     + '<div>Low tonight <b>'+WX.low+'</b> &middot; Tomorrow <b>'+WX.next+'</b>: high <b>'+WX.high+'</b></div>'
     + '</div>'
     + '<div class="ziprow"><input class="zipin" id="zipin" inputmode="numeric" placeholder="Enter ZIP code" value="">'
     + '<button class="zipbtn" id="zipbtn">Update</button></div>'
     + '<div class="zipmsg" id="zipmsg"></div></div>';
-  g.innerHTML = html;
-  var d = new Date();
-  document.getElementById('dateline').textContent =
-    d.toLocaleDateString('en-US',{weekday:'long', month:'long', day:'numeric', year:'numeric'});
+}
+function bindWeather(){
   var btn = document.getElementById('zipbtn'), inp = document.getElementById('zipin'), msg = document.getElementById('zipmsg');
+  if (!btn) return;
   function go(){
     var zip = inp.value.trim();
     if (!/^\d{5}$/.test(zip)){ msg.textContent = 'Enter a 5-digit US ZIP code.'; msg.classList.add('err'); return; }
@@ -175,6 +183,32 @@ function render(){
   btn.onclick = go;
   inp.addEventListener('keydown', function(e){ if (e.key === 'Enter') go(); });
 }
+function render(){
+  var active = currentTab();
+  var tabs = SECTIONS.map(function(s){
+    return '<button class="tab'+(s.id===active?' active':'')+'" data-tab="'+s.id+'">'+s.icon+' '+s.title+'</button>';
+  }).join('')
+    + '<button class="tab'+(active==='wx'?' active':'')+'" data-tab="wx">⛅ Weather</button>';
+  document.getElementById('tabs').innerHTML = tabs;
+  var nodes = document.querySelectorAll('#tabs .tab');
+  for (var i = 0; i < nodes.length; i++){
+    nodes[i].onclick = function(){ location.hash = this.getAttribute('data-tab'); };
+  }
+  var content = document.getElementById('content');
+  if (active === 'wx'){
+    content.innerHTML = weatherCard();
+    bindWeather();
+  } else {
+    for (var j = 0; j < SECTIONS.length; j++){
+      if (SECTIONS[j].id === active){ content.innerHTML = sectionCard(SECTIONS[j]); break; }
+    }
+  }
+  window.scrollTo(0, 0);
+  var d = new Date();
+  document.getElementById('dateline').textContent =
+    d.toLocaleDateString('en-US',{weekday:'long', month:'long', day:'numeric', year:'numeric'});
+}
+window.addEventListener('hashchange', render);
 render();
 </script>
 </body>
