@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>humAi Pulse — What's Happening</title>
+<style>
+  :root{
+    --bg:#070b06; --panel:#0e140c; --panel2:#111a0e; --line:#22331c;
+    --txt:#e8f0e2; --mut:#9db08f; --acc:#b5d334; --acc-dim:#7fa021;
+    --acc-glow:rgba(181,211,52,.16);
+  }
+  *{box-sizing:border-box; margin:0; padding:0}
+  body{background:var(--bg); color:var(--txt); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; padding:24px 16px 60px;}
+  .wrap{max-width:1060px; margin:0 auto}
+  header{display:flex; align-items:center; gap:14px; margin-bottom:6px}
+  .logo{width:46px; height:46px; border-radius:12px; background:linear-gradient(135deg,var(--acc),#5c7a12); display:flex; align-items:center; justify-content:center; font-size:24px; font-weight:900; color:#0a0f06}
+  h1{font-size:26px; letter-spacing:.5px}
+  h1 span{color:var(--acc)}
+  .sub{color:var(--mut); font-size:13px; margin:2px 0 18px}
+  .sub .live{display:inline-block; width:8px; height:8px; border-radius:50%; background:var(--acc); margin-right:6px; animation:pulse 1.6s infinite}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+  .grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); gap:14px}
+  .card{background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:16px; display:flex; flex-direction:column}
+  .card h2{font-size:15px; margin-bottom:4px; display:flex; align-items:center; gap:8px}
+  .card h2 .ic{font-size:18px}
+  .card .blurb{font-size:12px; color:var(--mut); margin-bottom:10px}
+  .item{display:block; padding:9px 10px; border-radius:9px; text-decoration:none; color:var(--txt); border:1px solid transparent}
+  .item:hover{background:var(--acc-glow); border-color:var(--line)}
+  .item .t{font-size:13.5px; font-weight:600; line-height:1.35}
+  .item .m{font-size:12px; color:var(--mut); margin-top:3px}
+  .item .m b{color:var(--acc); font-weight:600}
+  .rank{display:inline-flex; align-items:center; justify-content:center; width:22px; height:22px; border-radius:7px; background:var(--panel2); border:1px solid var(--line); color:var(--acc); font-size:12px; font-weight:800; margin-right:8px; vertical-align:1px}
+  .foot{margin-top:10px; font-size:12px}
+  .foot a{color:var(--acc); text-decoration:none; font-weight:600}
+  .wx-now{display:flex; align-items:baseline; gap:10px; margin:4px 0 8px}
+  .wx-temp{font-size:38px; font-weight:800; color:var(--acc)}
+  .wx-cond{font-size:14px; color:var(--txt)}
+  .wx-rows{font-size:12.5px; color:var(--mut); line-height:1.7}
+  .wx-rows b{color:var(--txt); font-weight:600}
+  .ziprow{display:flex; gap:8px; margin-top:12px}
+  .zipin{flex:1; min-width:0; padding:10px 12px; border-radius:10px; font-size:14px; border:2px solid var(--line); background:var(--panel2); color:var(--txt)}
+  .zipin:focus{outline:none; border-color:var(--acc)}
+  .zipbtn{padding:10px 18px; border-radius:10px; cursor:pointer; font-size:13px; font-weight:800; border:2px solid var(--acc); background:var(--acc); color:#0a0f06; white-space:nowrap}
+  .zipbtn:active{transform:translateY(1px)}
+  .zipbtn.busy{opacity:.55; cursor:default}
+  .zipmsg{font-size:12px; margin-top:8px; min-height:16px; color:var(--mut)}
+  .zipmsg.err{color:#e88}
+  footer{margin-top:26px; text-align:center; color:var(--mut); font-size:12px; line-height:1.7}
+  footer a{color:var(--acc); text-decoration:none}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="logo">h</div>
+    <div><h1>humAi <span>Pulse</span></h1></div>
+  </header>
+  <div class="sub"><span class="live"></span><span id="dateline"></span> &middot; curated for the curious &middot; weather updates live</div>
+  <div class="grid" id="grid"></div>
+  <footer>
+    Built by humAi &middot; Data baked in at build time except weather, which is live via Open-Meteo.<br>
+    <a href="https://x.com/humAi_cOnX">@humAi_cOnX</a> on X
+  </footer>
+</div>
+<script>
+var SECTIONS = [
+  { id: "x", title: "Top X Posts", icon: "𝕏", blurb: "The loudest posts on X right now",
+    items: [
+      { t: "OpenAI commits to 28 straight days of Codex improvements — or free resets", u: "https://x.com/thsottiaux/status/2106845241357824205", m: "<b>6.8M views</b> &middot; @thsottiaux &middot; Day 1 already shipped ~50% faster" },
+      { t: "OpenAI expands content provenance to text for EU rules", u: "https://x.com/OpenAI/status/2107164650249101695", m: "<b>2.2M views</b> &middot; @OpenAI &middot; admits watermarking limits" },
+      { t: "AI video of Jensen Huang moonwalking as Michael Jackson goes mega-viral", u: "https://x.com/shrmodelx/status/2106943789717733504", m: "<b>1.6M views</b> &middot; @shrmodelx &middot; Elon: \"This is why RAM is so expensive\"" } ],
+    foot: null },
+  { id: "yt", title: "Top YouTube Videos", icon: "▶", blurb: "Worth your watch time this week",
+    items: [
+      { t: "AI News Today: OpenAI Brings Visual Ads to ChatGPT — DX Today Daily Brief", u: "https://www.youtube.com/watch?v=Z6raIRTvDyU", m: "Daily AI briefing &middot; Oct 5, 2026" },
+      { t: "Billboard Hot 100 Top 10 Countdown — October 10th, 2026", u: "https://www.youtube.com/watch?v=6oZuzfYLsAA", m: "Billboard &middot; Swift takes over the chart" },
+      { t: "Top 35 Most Watched Eurovision 2026 Songs", u: "https://www.youtube.com/watch?v=IXzzPP9qkHQ", m: "Eurovision &middot; Oct 5, 2026" } ],
+    foot: null },
+  { id: "ainews", title: "Top AI News", icon: "🤖", blurb: "The AI stories that matter today",
+    items: [
+      { t: "OpenAI to test visual ads inside ChatGPT image generation", u: "https://www.gadgets360.com/ai/news", m: "Ads arrive in ChatGPT &middot; via Gadgets360" },
+      { t: "Cohere launches North 2 with agent memory + spending caps", u: "https://www.youtube.com/watch?v=Z6raIRTvDyU", m: "Enterprise agents &middot; via DX Today" },
+      { t: "Trump taps Jay Clayton to lead federal 'Super Intelligence' task force", u: "https://usa-today-news.com/news/trump-names-national-intelligence-director-jay-clayton-to-lead-a-new-federal-ai-task-force/", m: "US AI policy &middot; Oct 5, 2026" },
+      { t: "Google releases three new Gemini models", u: "https://techcrunch.com/category/artificial-intelligence/", m: "Model race &middot; via TechCrunch" },
+      { t: "Music streamer Deezer: over 50% of daily uploads are AI-generated", u: "https://techcrunch.com/category/artificial-intelligence/", m: "AI music flood &middot; via TechCrunch" } ],
+    foot: null },
+  { id: "world", title: "Top World News", icon: "🌍", blurb: "The planet, at a glance",
+    items: [
+      { t: "France: tens of thousands protest, 488 arrested as Macron calls crisis meeting", u: "https://www.thetimes.com/world/europe/article/france-protests-latest-news-french-students-schools-lxnx02q6p", m: "Paris &middot; 56,000 demonstrators &middot; via The Times" },
+      { t: "Brazil: Flávio Bolsonaro heads to runoff after shock first-round lead", u: "https://ntm.ng/world-news/", m: "~48% vs ~43% &middot; Oct 2026" },
+      { t: "US–Iran tensions: Tehran threatens US bases; oil minister resigns", u: "https://en.hathalyoum.net/news/2/Iran", m: "Middle East &middot; live updates" },
+      { t: "Kenya reports first-ever Ebola death", u: "https://ntm.ng/world-news/", m: "Health &middot; Oct 2026" } ],
+    foot: null },
+  { id: "songs", title: "Song Charts", icon: "🎵", blurb: "Billboard Hot 100 — week of Oct 10, 2026",
+    items: [
+      { t: "<span class='rank'>1</span>Taylor Swift — “Patient Zero”", u: "https://www.billboard.com/charts/hot-100/", m: "New #1 &middot; her 16th chart-topper" },
+      { t: "<span class='rank'>2</span>Ella Langley — “Choosin' Texas”", u: "https://www.billboard.com/charts/hot-100/", m: "Down from #1 after a historic 24-week run" },
+      { t: "<span class='rank'>3</span>Taylor Swift — “Cleveland!”", u: "https://www.billboard.com/charts/hot-100/", m: "Encore deluxe takes 4 of the top 5" },
+      { t: "<span class='rank'>4</span>Taylor Swift — “Babylon”", u: "https://www.billboard.com/charts/hot-100/", m: "" },
+      { t: "<span class='rank'>5</span>Taylor Swift — “Pink Clouding”", u: "https://www.billboard.com/charts/hot-100/", m: "" } ],
+    foot: "<a href='https://www.billboard.com/charts/hot-100/'>Full Billboard Hot 100 →</a>" },
+  { id: "movies", title: "Movie Charts", icon: "🎬", blurb: "Domestic box office — weekend of Oct 2–4, 2026",
+    items: [
+      { t: "<span class='rank'>1</span>Verity — $32.6M", u: "https://editorial.rottentomatoes.com/article/weekend-box-office-verity-week-1/", m: "Amazon MGM &middot; Colleen Hoover adaptation" },
+      { t: "<span class='rank'>2</span>Resident Evil — $12.5M", u: "https://editorial.rottentomatoes.com/article/weekend-box-office-verity-week-1/", m: "$124.8M total" },
+      { t: "<span class='rank'>3</span>Heart of the Beast — $11.0M", u: "https://editorial.rottentomatoes.com/article/weekend-box-office-verity-week-1/", m: "Paramount" },
+      { t: "<span class='rank'>4</span>Primetime — $8.0M", u: "https://editorial.rottentomatoes.com/article/weekend-box-office-verity-week-1/", m: "A24" },
+      { t: "<span class='rank'>5</span>Digger — $8.0M", u: "https://editorial.rottentomatoes.com/article/weekend-box-office-verity-week-1/", m: "Warner Bros &middot; Tom Cruise stumbles" } ],
+    foot: "<a href='https://www.boxofficemojo.com/'>Box Office Mojo →</a>" }
+];
+var WX = { zip:"62812", label:"Carlyle, IL", temp:"52°F", cond:"Sunny", humidity:"87%", wind:"SSW ~2 mph", low:"~51°F", high:"90°F", next:"Wednesday, Oct 7" };
+var WMO = {0:"Clear sky",1:"Mostly clear",2:"Partly cloudy",3:"Overcast",45:"Foggy",48:"Icy fog",51:"Light drizzle",53:"Drizzle",55:"Heavy drizzle",56:"Freezing drizzle",57:"Freezing drizzle",61:"Light rain",63:"Rain",65:"Heavy rain",66:"Freezing rain",67:"Freezing rain",71:"Light snow",73:"Snow",75:"Heavy snow",77:"Snow grains",80:"Light showers",81:"Showers",82:"Violent showers",85:"Snow showers",86:"Snow showers",95:"Thunderstorm",96:"Storm + hail",99:"Storm + hail"};
+function wmo(c){ return WMO[c] || "—"; }
+function compass(d){ var dirs=["N","NNE","NE","ENE","E","ESE","SE","SSE","S","SSW","SW","WSW","W","WNW","NW","NNW"]; return dirs[Math.round(d/22.5)%16]; }
+function render(){
+  var g = document.getElementById('grid');
+  var html = SECTIONS.map(function(s){
+    return '<div class="card"><h2><span class="ic">'+s.icon+'</span>'+s.title+'</h2>'
+      + '<div class="blurb">'+s.blurb+'</div>'
+      + s.items.map(function(it){
+          return '<a class="item" href="'+it.u+'" target="_blank" rel="noopener"><div class="t">'+it.t+'</div>'
+            + (it.m ? '<div class="m">'+it.m+'</div>' : '') + '</a>';
+        }).join('')
+      + (s.foot ? '<div class="foot">'+s.foot+'</div>' : '')
+      + '</div>';
+  }).join('');
+  html += '<div class="card"><h2><span class="ic">⛅</span>Weather</h2>'
+    + '<div class="blurb" id="wxlabel">'+WX.label+' '+WX.zip+' — live via Open-Meteo</div>'
+    + '<div class="wx-now"><div class="wx-temp" id="wxtemp">'+WX.temp+'</div><div class="wx-cond" id="wxcond">'+WX.cond+'</div></div>'
+    + '<div class="wx-rows" id="wxrows">'
+    + '<div>Humidity <b>'+WX.humidity+'</b> &middot; Wind <b>'+WX.wind+'</b></div>'
+    + '<div>Low tonight <b>'+WX.low+'</b> &middot; Tomorrow <b>'+WX.next+'</b>: high <b>'+WX.high+'</b></div>'
+    + '</div>'
+    + '<div class="ziprow"><input class="zipin" id="zipin" inputmode="numeric" placeholder="Enter ZIP code" value="">'
+    + '<button class="zipbtn" id="zipbtn">Update</button></div>'
+    + '<div class="zipmsg" id="zipmsg"></div></div>';
+  g.innerHTML = html;
+  var d = new Date();
+  document.getElementById('dateline').textContent =
+    d.toLocaleDateString('en-US',{weekday:'long', month:'long', day:'numeric', year:'numeric'});
+  var btn = document.getElementById('zipbtn'), inp = document.getElementById('zipin'), msg = document.getElementById('zipmsg');
+  function go(){
+    var zip = inp.value.trim();
+    if (!/^\d{5}$/.test(zip)){ msg.textContent = 'Enter a 5-digit US ZIP code.'; msg.classList.add('err'); return; }
+    btn.disabled = true; btn.classList.add('busy'); btn.textContent = 'Updating…';
+    msg.classList.remove('err'); msg.textContent = 'Looking up ' + zip + '…';
+    fetch('https://geocoding-api.open-meteo.com/v1/search?name='+encodeURIComponent(zip)+'&count=1&language=en&format=json')
+      .then(function(r){ if(!r.ok) throw new Error('net'); return r.json(); })
+      .then(function(gj){
+        if (!gj.results || !gj.results.length) throw new Error('notfound');
+        var p = gj.results[0];
+        var label = p.name + (p.admin1 ? ', '+p.admin1 : '');
+        var furl = 'https://api.open-meteo.com/v1/forecast?latitude='+p.latitude+'&longitude='+p.longitude
+          + '&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m,wind_direction_10m'
+          + '&daily=temperature_2m_max,temperature_2m_min,weather_code'
+          + '&temperature_unit=fahrenheit&wind_speed_unit=mph&timezone=auto&forecast_days=2';
+        return fetch(furl).then(function(r){ if(!r.ok) throw new Error('net'); return r.json(); })
+          .then(function(f){
+            var c = f.current, dl = f.daily;
+            WX = { zip: zip, label: label,
+              temp: Math.round(c.temperature_2m)+'°F', cond: wmo(c.weather_code),
+              humidity: Math.round(c.relative_humidity_2m)+'%', wind: compass(c.wind_direction_10m)+' ~'+Math.round(c.wind_speed_10m)+' mph',
+              low: Math.round(dl.temperature_2m_min[0])+'°F', high: Math.round(dl.temperature_2m_max[1])+'°F',
+              next: new Date(dl.time[1]+'T12:00:00').toLocaleDateString('en-US',{weekday:'long', month:'short', day:'numeric'}) };
+            render();
+          });
+      })
+      .catch(function(e){
+        msg.textContent = (e && e.message === 'notfound') ? 'ZIP code not found — try another.' : 'Couldn’t reach the weather service. Try again.';
+        msg.classList.add('err');
+        btn.disabled = false; btn.classList.remove('busy'); btn.textContent = 'Update';
+      });
+  }
+  btn.onclick = go;
+  inp.addEventListener('keydown', function(e){ if (e.key === 'Enter') go(); });
+}
+render();
+</script>
+</body>
+</html>
