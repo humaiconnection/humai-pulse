@@ -275,7 +275,7 @@ function initRadar(){
   if(!el || typeof L === 'undefined' || WX.lat == null || WX.lon == null) return;
   var map = L.map('radar', { zoomControl: true }).setView([WX.lat, WX.lon], 7);
   window._radarMap = map;
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { maxZoom: 12 }).addTo(map);
+  L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}', { maxZoom: 12, attribution: 'Esri' }).addTo(map);
   fetch('https://api.rainviewer.com/public/weather-maps.json').then(function(r){ return r.json(); }).then(function(j){
     var frames = (j.radar && j.radar.past) || [];
     if(!frames.length) return;
