@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- TEST PAGE — not linked from anywhere public. Do not index. -->
+<meta name="robots" content="noindex, nofollow, noarchive">
+<title>Movies — humAi TeSt LaB</title>
+<style>
+  :root{
+    --bg:#070b06; --panel:#0e140c; --panel2:#111a0e; --line:#22331c;
+    --txt:#e8f0e2; --mut:#9db08f; --acc:#b5d334; --acc-dim:#7fa021;
+    --acc-glow:rgba(181,211,52,.16); --warn:#e8a33d; --bad:#e86a6a;
+  }
+  *{box-sizing:border-box; margin:0; padding:0}
+  body{background:var(--bg); color:var(--txt); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; padding:24px 16px 60px;}
+  .wrap{max-width:1080px; margin:0 auto}
+  header{display:flex; align-items:center; gap:14px; margin-bottom:4px}
+  .logo{width:46px; height:46px; border-radius:12px; background:linear-gradient(135deg,var(--acc),#5c7a12); display:flex; align-items:center; justify-content:center; font-size:22px; font-weight:900; color:#0a0f06; flex:none}
+  h1{font-size:24px; letter-spacing:.5px}
+  h1 span{color:var(--acc)}
+  .sub{color:var(--mut); font-size:13px; margin:2px 0 16px}
+  .sub .live{display:inline-block; width:8px; height:8px; border-radius:50%; background:var(--acc); margin-right:6px; animation:pulse 1.6s infinite}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+  /* tabs — same look as the other pages */
+  .tabs{position:sticky; top:0; z-index:5; display:flex; gap:8px; flex-wrap:wrap; padding:10px 0; margin-bottom:16px; background:var(--bg)}
+  .tab{padding:10px 14px; border-radius:10px; border:1px solid var(--line); background:var(--panel); color:var(--mut); font-size:13px; font-weight:700; cursor:pointer; text-decoration:none}
+  .tab:hover{border-color:var(--acc); color:var(--txt)}
+  .tab.active{background:var(--acc); border-color:var(--acc); color:#0a0f06}
+  .section{display:none}
+  .section.active{display:block}
+  .card{background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:16px; display:flex; flex-direction:column; margin-bottom:14px}
+  .card h2{font-size:14px; margin-bottom:4px; display:flex; align-items:center; gap:8px; letter-spacing:.4px}
+  .card h2 .ico{color:var(--acc)}
+  .card .blurb{font-size:12px; color:var(--mut); margin-bottom:12px; line-height:1.5}
+  .card .empty{font-size:13px; color:var(--mut); text-align:center; padding:26px 12px; line-height:1.6}
+  /* embedded video */
+  .feature{border:1px solid var(--acc-dim); border-radius:14px; overflow:hidden; margin-bottom:14px; background:var(--panel); box-shadow:0 0 24px var(--acc-glow)}
+  .feature .cap{padding:12px 16px; display:flex; align-items:center; gap:10px; border-bottom:1px solid var(--line)}
+  .feature .cap .dot{width:8px; height:8px; border-radius:50%; background:var(--acc); animation:pulse 1.6s infinite; flex:none}
+  .feature .cap b{font-size:14px}
+  .feature .cap span{font-size:12px; color:var(--mut)}
+  .vid{position:relative; padding-bottom:56.25%; height:0; background:#000}
+  .vid iframe{position:absolute; top:0; left:0; width:100%; height:100%; border:0}
+  footer{margin-top:28px; padding-top:14px; border-top:1px solid var(--line); color:var(--mut); font-size:11.5px; text-align:center; line-height:1.6}
+  footer b{color:var(--warn)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="logo">🎬</div>
+    <h1>Movies <span>— humAi TeSt LaB</span></h1>
+  </header>
+  <div class="sub"><span class="live"></span>test build · video + games experiments</div>
+
+  <nav class="tabs" id="tabs"></nav>
+
+  <main id="sections"></main>
+
+  <footer><b>TEST PAGE</b> — your embedded videos, nothing else.<br>Send a link and I'll drop it into the right category.</footer>
+</div>
+
+<script>
+var CATS = [
+  { id:"action", icon:"💥", name:"Action", blurb:"Your embedded action picks.",
+    videos:[{ id:"vrHeuwO5agw", title:"The Terminator" }] },
+  { id:"adventure", icon:"🧭", name:"Adventure", blurb:"Your embedded adventure picks.", videos:[] },
+  { id:"comedy", icon:"😂", name:"Comedy", blurb:"Your embedded comedy picks.", videos:[] },
+  { id:"drama", icon:"🎭", name:"Drama", blurb:"Your embedded drama picks.", videos:[] },
+  { id:"horror", icon:"👻", name:"Horror", blurb:"Your embedded horror picks.", videos:[] },
+  { id:"scifi", icon:"🚀", name:"Sci-Fi", blurb:"Your embedded sci-fi picks.", videos:[] },
+  { id:"thriller", icon:"🔪", name:"Thriller", blurb:"Your embedded thriller picks.", videos:[] },
+  { id:"crime", icon:"🕶️", name:"Crime", blurb:"Your embedded crime picks.", videos:[] }
+];
+
+var tabsEl = document.getElementById('tabs');
+var secsEl = document.getElementById('sections');
+
+CATS.forEach(function(c, i){
+  var a = document.createElement('a');
+  a.className = 'tab' + (i===0 ? ' active' : '');
+  a.href = '#' + c.id;
+  a.textContent = c.icon + ' ' + c.name;
+  a.dataset.sec = c.id;
+  tabsEl.appendChild(a);
+
+  var s = document.createElement('section');
+  s.className = 'section' + (i===0 ? ' active' : '');
+  s.id = 'sec-' + c.id;
+
+  var html = '<div class="card"><h2><span class="ico">' + c.icon + '</span>' + c.name +
+             '</h2><div class="blurb">' + c.blurb + '</div></div>';
+
+  (c.videos || []).forEach(function(v){
+    html += '<div class="feature"><div class="cap"><span class="dot"></span><b>' + v.title +
+            '</b><span>embedded video</span></div>' +
+            '<div class="vid"><iframe src="https://www.youtube.com/embed/' + v.id +
+            '" title="' + v.title +
+            '" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe></div></div>';
+  });
+
+  if (!c.videos || !c.videos.length){
+    html += '<div class="card"><div class="empty">No videos here yet.<br>Send a link and I\u2019ll embed it in this category.</div></div>';
+  }
+
+  s.innerHTML = html;
+  secsEl.appendChild(s);
+});
+
+function activate(id){
+  document.querySelectorAll('.tab').forEach(function(t){ t.classList.toggle('active', t.dataset.sec === id); });
+  document.querySelectorAll('.section').forEach(function(s){ s.classList.toggle('active', s.id === 'sec-' + id); });
+}
+tabsEl.addEventListener('click', function(e){
+  var t = e.target.closest('.tab');
+  if (t){ activate(t.dataset.sec); }
+});
+var h = location.hash.replace('#','');
+if (h && CATS.some(function(c){ return c.id === h; })){ activate(h); }
+</script>
+</body>
+</html>
