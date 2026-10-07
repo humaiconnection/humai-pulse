@@ -466,11 +466,11 @@ function renderCredits(){
   const now = Date.now(), resetMs = new Date(c.resetISO).getTime();
   host.innerHTML =
     (low ? '<div class="cr-warn"><div class="t">Low credits — under 10% left</div><div>Only ' + l + '% of your free weekly credits remain. Heavy work may stall until the reset — consider lighter tasks.</div></div>' : '')
-    + '<div class="cr-bigrow"><div><div class="cr-bignum' + (low ? ' low' : '') + '">' + l + '%</div><div class="cr-lab">remaining</div></div>'
+    + '<div class="cr-bigrow"><div><div class="cr-bignum' + (low ? ' low' : '') + '">' + u + '%</div><div class="cr-lab">used</div></div>'
     + '<div class="cr-meterwrap"><div class="cr-meter"><div class="cr-fill' + (low ? ' low' : '') + '" style="width:' + u + '%"></div><div class="cr-tick"></div></div>'
     + '<div class="cr-scale"><span>0% used</span><span>10% left warning line</span><span>100%</span></div></div></div>'
     + '<div class="cr-grid">'
-    + '<div class="cr-stat"><div class="v">' + u + '%</div><div class="l">used so far</div></div>'
+    + '<div class="cr-stat"><div class="v">' + l + '%</div><div class="l">remaining</div></div>'
     + '<div class="cr-stat"><div class="v">' + crDur(resetMs - now) + '</div><div class="l">until weekly reset</div></div>'
     + '<div class="cr-stat"><div class="v">' + crPace(c, now) + '</div><div class="l">to zero at current pace</div></div>'
     + '</div>'
