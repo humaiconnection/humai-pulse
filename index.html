@@ -14,7 +14,8 @@
   body{background:var(--bg); color:var(--txt); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; padding:24px 16px 60px;}
   .wrap{max-width:1060px; margin:0 auto}
   header{display:flex; align-items:center; gap:14px; margin-bottom:6px}
-  .logo{width:46px; height:46px; border-radius:12px; background:linear-gradient(135deg,var(--acc),#5c7a12); display:flex; align-items:center; justify-content:center; font-size:24px; font-weight:900; color:#0a0f06}
+  .logo{width:46px; height:46px; border-radius:12px; background:linear-gradient(135deg,var(--acc),#5c7a12); display:flex; align-items:center; justify-content:center; font-size:24px; font-weight:900; color:#0a0f06; position:relative; overflow:hidden; flex:none}
+  .logo img{position:absolute; inset:0; width:100%; height:100%; object-fit:cover; display:none}
   h1{font-size:26px; letter-spacing:.5px}
   h1 span{color:var(--acc)}
   .sub{color:var(--mut); font-size:13px; margin:2px 0 18px}
@@ -64,7 +65,7 @@
 <div id="intro"><span id="intro-skip">tap to skip</span></div>
 <div class="wrap">
   <header>
-    <div class="logo">h</div>
+    <div class="logo">h<img id="pulse-logo-gif" alt="humAi"></div>
     <div><h1>humAi <span>Pulse</span></h1></div>
   </header>
   <div class="sub"><span class="live"></span><span id="dateline"></span> &middot; curated for the curious &middot; weather updates live</div>
@@ -144,6 +145,10 @@ function compass(d){ var dirs=["N","NNE","NE","ENE","E","ESE","SE","SSE","S","SS
    flashAt = seconds until the peak-white frame, where the fade begins.
    Tweak colors/timing here; the engine is at the bottom of the script. */
 var INTRO = { flashAt: 1.65, fadeMs: 450 };
+
+/* Logo GIF: plays once on first load, replays every 60s. The gif lives at
+   assets/labz-emblem.gif in the repo. Falls back to the plain logo box. */
+var LOGO = { src: 'assets/labz-emblem.gif', replaySeconds: 60 };
 
 /* Tabs: one button per section plus Weather. The active tab follows the URL
    hash (e.g. .../humai-pulse/#ainews), so tabs are linkable. */
@@ -361,6 +366,18 @@ render();
   requestAnimationFrame(frame);
   setTimeout(finish, 8000); // safety: never trap the user
 })();
+
+/* ---------- logo GIF: once on load, replay every 60s ---------- */
+function playLogoGif(){
+  var img = document.getElementById('pulse-logo-gif');
+  if(!img) return;
+  var probe = new Image();
+  probe.onload = function(){ img.style.display = 'block'; img.src = probe.src; };
+  probe.onerror = function(){ if(img.parentNode) img.remove(); };
+  probe.src = LOGO.src + '?t=' + Date.now(); // cache-bust so the single-play gif restarts
+}
+window.addEventListener('load', function(){ setTimeout(playLogoGif, 2300); }); // first play, post-intro
+setInterval(function(){ if(!document.hidden) playLogoGif(); }, LOGO.replaySeconds * 1000);
 </script>
 </body>
 </html>
