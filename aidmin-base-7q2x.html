@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- Not linked from anywhere public. Do not index. -->
+<meta name="robots" content="noindex, nofollow, noarchive">
+<title>A.i.dmin Base — humAi Pulse Control</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<style>
+  :root{
+    --bg:#05080a; --panel:#0b1116; --panel2:#0e151c; --line:#1c2a33;
+    --txt:#e6f0ee; --mut:#8fa3ad; --acc:#39d0d8; --acc2:#b5d334;
+    --acc-glow:rgba(57,208,216,.14); --warn:#e8a33d; --bad:#e86a6a;
+  }
+  *{box-sizing:border-box; margin:0; padding:0}
+  body{background:var(--bg); color:var(--txt); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; padding:22px 14px 60px;}
+  .wrap{max-width:1080px; margin:0 auto}
+  header{display:flex; align-items:center; gap:14px; margin-bottom:4px}
+  .logo{width:48px; height:48px; border-radius:12px; background:linear-gradient(135deg,var(--acc),#1a7f86); display:flex; align-items:center; justify-content:center; font-size:22px; font-weight:900; color:#041014; box-shadow:0 0 24px var(--acc-glow)}
+  h1{font-size:24px; letter-spacing:.5px}
+  h1 span{color:var(--acc)}
+  .sub{color:var(--mut); font-size:13px; margin:2px 0 16px}
+  .sub .live{display:inline-block; width:8px; height:8px; border-radius:50%; background:var(--acc); margin-right:6px; animation:pulse 1.6s infinite}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+  /* tabs */
+  .tabs{position:sticky; top:0; z-index:5; display:flex; gap:8px; flex-wrap:wrap; padding:10px 0; margin-bottom:16px; background:var(--bg)}
+  .tab{padding:10px 16px; border-radius:10px; border:1px solid var(--line); background:var(--panel); color:var(--mut); font-size:13px; font-weight:700; cursor:pointer}
+  .tab:hover{border-color:var(--acc); color:var(--txt)}
+  .tab.active{background:var(--acc); border-color:var(--acc); color:#041014}
+  .section{display:none}
+  .section.active{display:block}
+  .grid{display:grid; gap:14px}
+  .g3{grid-template-columns:repeat(auto-fit,minmax(280px,1fr))}
+  .g4{grid-template-columns:repeat(auto-fit,minmax(210px,1fr))}
+  .card{background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:16px; display:flex; flex-direction:column; position:relative; overflow:hidden}
+  .card::before{content:""; position:absolute; top:0; left:0; right:0; height:2px; background:linear-gradient(90deg,transparent,var(--acc),transparent); opacity:.5}
+  .card h2{font-size:14px; margin-bottom:4px; display:flex; align-items:center; gap:8px; letter-spacing:.4px}
+  .card .blurb{font-size:12px; color:var(--mut); margin-bottom:10px; line-height:1.5}
+  /* stat cards */
+  .stat{background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:16px}
+  .stat .k{font-size:11px; color:var(--mut); text-transform:uppercase; letter-spacing:1px; margin-bottom:6px}
+  .stat .v{font-size:32px; font-weight:800; color:var(--acc); font-variant-numeric:tabular-nums}
+  .stat .v small{font-size:14px; color:var(--mut); font-weight:600}
+  .stat .n{font-size:12px; color:var(--mut); margin-top:6px; line-height:1.5}
+  /* gauges */
+  .gauge-wrap{display:flex; flex-direction:column; align-items:center; padding:6px 0 2px}
+  .gauge-val{font-size:30px; font-weight:800; color:var(--acc); font-variant-numeric:tabular-nums; margin-top:-58px}
+  .gauge-unit{font-size:12px; color:var(--mut); margin-top:2px}
+  .gauge-label{font-size:11px; color:var(--mut); text-transform:uppercase; letter-spacing:1px; margin-top:10px; text-align:center}
+  .gauge-sub{font-size:11.5px; color:var(--mut); margin-top:4px; text-align:center; min-height:16px}
+  /* token box */
+  .tokenbox{display:flex; gap:8px; flex-wrap:wrap; margin-top:6px}
+  .tokenin{flex:1; min-width:200px; padding:10px 12px; border-radius:10px; font-size:13px; border:2px solid var(--line); background:var(--panel2); color:var(--txt); font-family:ui-monospace,Menlo,monospace}
+  .tokenin:focus{outline:none; border-color:var(--acc)}
+  .btn{padding:10px 18px; border-radius:10px; cursor:pointer; font-size:13px; font-weight:800; border:2px solid var(--acc); background:var(--acc); color:#041014; white-space:nowrap}
+  .btn:active{transform:translateY(1px)}
+  .btn.ghost{background:transparent; color:var(--acc)}
+  .btn.busy{opacity:.55; cursor:default}
+  .msg{font-size:12.5px; margin-top:10px; min-height:18px; color:var(--mut); line-height:1.5}
+  .msg.err{color:var(--bad)} .msg.ok{color:var(--acc2)}
+  .steps{font-size:12.5px; color:var(--mut); line-height:1.8; margin-top:10px}
+  .steps b{color:var(--txt)} .steps code{background:var(--panel2); border:1px solid var(--line); border-radius:6px; padding:1px 7px; font-size:12px; color:var(--acc)}
+  /* charts */
+  .chartbox{position:relative; height:260px}
+  .pathrow{display:flex; align-items:center; gap:10px; padding:8px 4px; border-bottom:1px solid var(--line); font-size:13px}
+  .pathrow:last-child{border-bottom:none}
+  .pathrow .p{flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-family:ui-monospace,Menlo,monospace; font-size:12px; color:var(--txt)}
+  .pathbar{height:8px; border-radius:4px; background:linear-gradient(90deg,var(--acc),#1a7f86); min-width:4px}
+  .pathrow .c{color:var(--acc); font-weight:700; font-variant-numeric:tabular-nums; min-width:44px; text-align:right}
+  .locknote{display:flex; gap:12px; align-items:flex-start; background:var(--panel2); border:1px dashed var(--line); border-radius:12px; padding:14px; font-size:12.5px; color:var(--mut); line-height:1.6}
+  .locknote b{color:var(--warn)}
+  footer{margin-top:26px; text-align:center; color:var(--mut); font-size:12px}
+  @media(max-width:560px){ .gauge-val{font-size:26px} }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="logo">◈</div>
+    <div>
+      <h1>A.i.dmin <span>Base</span></h1>
+      <div class="sub"><span class="live"></span>humAi Pulse mission control · private</div>
+    </div>
+  </header>
+
+  <div class="tabs" id="tabs"></div>
+
+  <!-- OVERVIEW -->
+  <div class="section" id="sec-overview">
+    <div class="grid g3" style="margin-bottom:14px">
+      <div class="card">
+        <h2>🔌 Data Exchange Meter</h2>
+        <div class="blurb">Live measurement of this dashboard's own page load, taken in your browser right now. No backend, no estimates.</div>
+        <div class="grid g3" id="meters" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr))"></div>
+      </div>
+      <div class="card">
+        <h2>📡 Probe the public site</h2>
+        <div class="blurb">Fetches the live humAi Pulse page and measures exactly how many bytes travel over the wire.</div>
+        <div class="gauge-wrap">
+          <div class="gauge-val" id="probe-val" style="margin-top:0">—</div>
+          <div class="gauge-unit">KB transferred</div>
+          <div class="gauge-sub" id="probe-sub">not probed yet</div>
+        </div>
+        <div style="text-align:center; margin-top:8px"><button class="btn ghost" id="probe-btn">Run probe</button></div>
+      </div>
+      <div class="card">
+        <h2>⚡ Repo vitals</h2>
+        <div class="blurb">Public repo stats. No token needed for these.</div>
+        <div class="grid g4" id="vitals" style="grid-template-columns:repeat(auto-fit,minmax(120px,1fr))"></div>
+        <div class="msg" id="vitals-msg"></div>
+      </div>
+    </div>
+    <div class="locknote">
+      <div style="font-size:20px">🛰️</div>
+      <div><b>Honest telemetry note:</b> GitHub's traffic API measures visits to the <b>repository page</b> (github.com/humaiconnection/humai-pulse), not visits to the live site itself — GitHub Pages serves static files and keeps no visitor logs. True per-visit site analytics is a planned add-on (a tiny snippet on the public page). The Data Exchange Meter above, though, is 100% real: it's your browser measuring actual bytes.</div>
+    </div>
+  </div>
+
+  <!-- TRAFFIC -->
+  <div class="section" id="sec-traffic">
+    <div class="card" style="margin-bottom:14px" id="token-card">
+      <h2>🔑 GitHub connection</h2>
+      <div class="blurb">Traffic data is private to the repo owner, so paste a token once — it stays in <b>this browser only</b> (localStorage), never in the repo.</div>
+      <div class="tokenbox">
+        <input class="tokenin" id="token-in" type="password" placeholder="ghp_••••••••••••••••••••" autocomplete="off">
+        <button class="btn" id="token-save">Connect</button>
+        <button class="btn ghost" id="token-clear">Disconnect</button>
+      </div>
+      <div class="steps">
+        <b>Make a token:</b> GitHub → Settings → Developer settings → Personal access tokens → Tokens (classic) → Generate new →
+        give it <code>repo</code> scope (traffic needs push-level access) → copy the <code>ghp_…</code> value and paste it here.
+      </div>
+      <div class="msg" id="token-msg"></div>
+    </div>
+    <div id="traffic-live" style="display:none">
+      <div class="grid g3" style="margin-bottom:14px">
+        <div class="card" style="grid-column:1/-1">
+          <h2>📈 Views — last 14 days <span style="color:var(--mut); font-weight:400; font-size:12px">(GitHub keeps only 14 days of this)</span></h2>
+          <div class="blurb" id="views-summary"></div>
+          <div class="chartbox"><canvas id="ch-views"></canvas></div>
+        </div>
+        <div class="card">
+          <h2>📥 Clones — last 14 days</h2>
+          <div class="blurb" id="clones-summary"></div>
+          <div class="chartbox" style="height:220px"><canvas id="ch-clones"></canvas></div>
+        </div>
+        <div class="card">
+          <h2>🔗 Top referrers</h2>
+          <div class="blurb">Where repo visitors came from.</div>
+          <div class="chartbox" style="height:220px"><canvas id="ch-ref"></canvas></div>
+        </div>
+        <div class="card">
+          <h2>📄 Popular paths</h2>
+          <div class="blurb">Most-viewed pages in the repo.</div>
+          <div id="paths"></div>
+        </div>
+      </div>
+      <div style="text-align:center"><button class="btn ghost" id="refresh-btn">↻ Refresh all data</button></div>
+    </div>
+  </div>
+
+  <!-- REPO -->
+  <div class="section" id="sec-repo">
+    <div class="grid g3">
+      <div class="card">
+        <h2>🧬 Repository</h2>
+        <div class="blurb">Identity and state of the humai-pulse repo.</div>
+        <div id="repo-info" style="font-size:13px; line-height:2; color:var(--mut)"></div>
+      </div>
+      <div class="card">
+        <h2>📝 Latest commit</h2>
+        <div class="blurb">The freshest change on the default branch.</div>
+        <div id="commit-info" style="font-size:13px; line-height:1.7; color:var(--mut)"></div>
+      </div>
+      <div class="card">
+        <h2>🧪 Test Lab notes</h2>
+        <div class="blurb">Ideas queued from the TeSt LaB chat. Edit this list right in the file — it's just HTML.</div>
+        <div id="lab-notes" style="font-size:13px; line-height:1.9; color:var(--txt)">
+          <div>◈ A.i.dmin Base v1 — charts + meters online</div>
+          <div>○ True site-visit analytics (snippet add-on)</div>
+          <div>○ Uptime heartbeat for the public page</div>
+          <div>○ Deploy history timeline</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <footer>A.i.dmin Base · unlisted &amp; unindexed · humAi Pulse mission control</footer>
+</div>
+<script>
+/* ============================================================================
+   A.i.dmin BASE — CONFIG HUB  ★ ADD NEW STATS / CHARTS / METERS HERE ★
+   ----------------------------------------------------------------------------
+   HOW TO ADD SOMETHING LATER (30 seconds):
+   1. METERS  — add one line to METERS[] below. It auto-renders as a gauge.
+               { id:'x', label:'...', unit:'...', max:100, decimals:1,
+                 get:() => <number> }
+   2. VITALS  — add one line to VITALS[]. It auto-renders as a stat card.
+               { label:'...', icon:'⭐', get:(repo) => repo.some_field,
+                 note:'...' }
+   3. TABS    — add {id:'my_tab', label:'My Tab', icon:'🛰️'} to TABS[], then add
+               <div class="section" id="sec-my_tab"> ...your HTML... </div>
+               in the body above. The tab button wires itself up.
+   4. CHARTS  — traffic charts live in renderTraffic(). Copy one block,
+               point it at a new canvas id, done.
+   ============================================================================ */
+const AIDMIN = {
+  owner: 'humaiconnection',
+  repo:  'humai-pulse',
+  siteUrl: 'https://humaiconnection.github.io/humai-pulse/',
+
+  TABS: [
+    { id:'overview', label:'Overview', icon:'◈' },
+    { id:'traffic',  label:'Traffic',  icon:'📈' },
+    { id:'repo',     label:'Repo',     icon:'🗂' },
+  ],
+
+  /* Gauges on the Overview tab. get() must return a number. */
+  METERS: [
+    { id:'m-kb', label:'Page weight', unit:'KB', max:2000, decimals:1,
+      get:() => totalBytes() / 1024,
+      sub:() => fmtInt(requestCount()) + ' requests' },
+    { id:'m-req', label:'Requests', unit:'req', max:120, decimals:0,
+      get:() => requestCount(),
+      sub:() => 'this load' },
+    { id:'m-ms', label:'Load time', unit:'ms', max:5000, decimals:0,
+      get:() => loadMs(),
+      sub:() => 'navigation → load event' },
+  ],
+
+  /* Stat cards. get(repo) receives the GitHub repo JSON. */
+  VITALS: [
+    { label:'Stars',   icon:'⭐', get:r => r.stargazers_count, note:'people who bookmarked it' },
+    { label:'Forks',   icon:'🍴', get:r => r.forks_count,      note:'copies out in the wild' },
+    { label:'Watchers',icon:'👀', get:r => r.subscribers_count,note:'notified on activity' },
+    { label:'Open issues', icon:'🐞', get:r => r.open_issues_count, note:'needs attention?' },
+  ],
+};
+const api = (path, token) => fetch('https://api.github.com' + path, {
+  headers: Object.assign({ 'Accept':'application/vnd.github+json' },
+    token ? { 'Authorization':'Bearer ' + token } : {})
+}).then(r => { if(!r.ok) throw new Error('GitHub API ' + r.status); return r.json(); });
+const $ = id => document.getElementById(id);
+const fmtInt = n => Math.round(n).toLocaleString('en-US');
+
+/* ---------- tabs (auto-built from AIDMIN.TABS) ---------- */
+(function buildTabs(){
+  const bar = $('tabs');
+  AIDMIN.TABS.forEach((t, i) => {
+    const b = document.createElement('button');
+    b.className = 'tab' + (i===0 ? ' active' : '');
+    b.textContent = t.icon + ' ' + t.label;
+    b.onclick = () => {
+      document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
+      document.querySelectorAll('.section').forEach(x => x.classList.remove('active'));
+      b.classList.add('active');
+      const sec = $('sec-' + t.id);
+      if(sec) sec.classList.add('active');
+      if(location.hash !== '#' + t.id) history.replaceState(null,'','#'+t.id);
+    };
+    bar.appendChild(b);
+  });
+  const h = (location.hash || '').slice(1);
+  if(h && AIDMIN.TABS.some(t => t.id === h)){
+    const idx = AIDMIN.TABS.findIndex(t => t.id === h);
+    bar.children[idx].click();
+  } else {
+    $('sec-' + AIDMIN.TABS[0].id).classList.add('active');
+  }
+})();
+
+/* ---------- live performance telemetry (the data exchange meter) ---------- */
+let _nav = null, _res = [];
+function perfSnapshot(){
+  try{
+    _nav = performance.getEntriesByType('navigation')[0] || null;
+    _res = performance.getEntriesByType('resource') || [];
+  }catch(e){ _nav = null; _res = []; }
+}
+function totalBytes(){
+  let b = 0;
+  if(_nav && _nav.transferSize) b += _nav.transferSize;
+  _res.forEach(r => { if(r.transferSize) b += r.transferSize; });
+  return b;
+}
+function requestCount(){ return _res.length + (_nav ? 1 : 0); }
+function loadMs(){
+  if(_nav && _nav.loadEventEnd) return Math.max(0, _nav.loadEventEnd - _nav.startTime);
+  return Math.round(performance.now());
+}
+
+/* ---------- SVG gauges (auto-built from AIDMIN.METERS) ---------- */
+function gaugeSVG(id, value, max){
+  // 240° speedometer: min at lower-left (150°), mid at top (270°), max at lower-right (30°)
+  const pct = Math.max(0, Math.min(1, value / max));
+  const ang = 150 + pct * 240;
+  const P = d => [100 + 88 * Math.cos(d * Math.PI / 180), 100 + 88 * Math.sin(d * Math.PI / 180)];
+  const start = P(150), end = P(390);
+  const ticks = [];
+  for(let i = 0; i <= 12; i++){
+    const a = (150 + i * 20) * Math.PI / 180;
+    const x1 = 100 + 76 * Math.cos(a), y1 = 100 + 76 * Math.sin(a);
+    const x2 = 100 + 88 * Math.cos(a), y2 = 100 + 88 * Math.sin(a);
+    ticks.push('<line x1="'+x1.toFixed(1)+'" y1="'+y1.toFixed(1)+'" x2="'+x2.toFixed(1)+'" y2="'+y2.toFixed(1)+'" stroke="'+(i/12<=pct?'#39d0d8':'#1c2a33')+'" stroke-width="'+(i%3===0?3:1.5)+'"/>');
+  }
+  // needle drawn pointing up (-90°); rotate so 150°→needle-down-left … 390°→needle-down-right
+  const needleDeg = ang + 90;
+  return '<svg viewBox="0 0 200 200" width="170" height="170">'
+    + '<path d="M '+start[0].toFixed(1)+' '+start[1].toFixed(1)
+    + ' A 88 88 0 1 1 '+end[0].toFixed(1)+' '+end[1].toFixed(1)
+    + '" fill="none" stroke="#1c2a33" stroke-width="10" stroke-linecap="round"/>'
+    + ticks.join('')
+    + '<g transform="rotate('+needleDeg.toFixed(1)+' 100 100)">'
+    + '<line x1="100" y1="100" x2="100" y2="34" stroke="#39d0d8" stroke-width="4" stroke-linecap="round"/>'
+    + '<circle cx="100" cy="100" r="8" fill="#0b1116" stroke="#39d0d8" stroke-width="3"/></g></svg>';
+}
+function renderMeters(){
+  perfSnapshot();
+  const host = $('meters');
+  host.innerHTML = '';
+  AIDMIN.METERS.forEach(m => {
+    let v = 0; try{ v = m.get(); }catch(e){ v = 0; }
+    if(!isFinite(v)) v = 0;
+    const d = document.createElement('div');
+    d.className = 'gauge-wrap';
+    d.innerHTML = gaugeSVG(m.id, v, m.max)
+      + '<div class="gauge-val">' + v.toFixed(m.decimals) + '</div>'
+      + '<div class="gauge-unit">' + m.unit + '</div>'
+      + '<div class="gauge-label">' + m.label + '</div>'
+      + '<div class="gauge-sub">' + (m.sub ? m.sub() : '') + '</div>';
+    host.appendChild(d);
+  });
+}
+
+/* ---------- probe the public site ---------- */
+$('probe-btn').onclick = async () => {
+  const btn = $('probe-btn'), val = $('probe-val'), sub = $('probe-sub');
+  btn.classList.add('busy'); btn.textContent = 'Probing…';
+  val.textContent = '…'; sub.textContent = 'fetching live page';
+  try{
+    const t0 = performance.now();
+    const res = await fetch(AIDMIN.siteUrl, { cache:'no-store' });
+    const buf = await res.arrayBuffer();
+    const ms = Math.round(performance.now() - t0);
+    val.textContent = (buf.byteLength / 1024).toFixed(1);
+    sub.textContent = 'fetched in ' + ms + ' ms · HTTP ' + res.status;
+  }catch(e){
+    val.textContent = '✕'; sub.textContent = 'probe failed: ' + e.message;
+  }
+  btn.classList.remove('busy'); btn.textContent = 'Run probe';
+};
+
+/* ---------- repo vitals (auto-built from AIDMIN.VITALS) ---------- */
+async function loadVitals(){
+  const host = $('vitals'), msg = $('vitals-msg');
+  try{
+    const repo = await api('/repos/' + AIDMIN.owner + '/' + AIDMIN.repo, getToken());
+    host.innerHTML = '';
+    AIDMIN.VITALS.forEach(v => {
+      const d = document.createElement('div');
+      d.className = 'stat';
+      d.innerHTML = '<div class="k">' + v.icon + ' ' + v.label + '</div>'
+        + '<div class="v">' + fmtInt(v.get(repo)) + '</div>'
+        + '<div class="n">' + v.note + '</div>';
+      host.appendChild(d);
+    });
+    const pushed = new Date(repo.pushed_at);
+    $('repo-info').innerHTML =
+      '◈ <b style="color:var(--txt)">' + repo.full_name + '</b><br>' +
+      '◈ Default branch: <b style="color:var(--txt)">' + repo.default_branch + '</b><br>' +
+      '◈ Size: <b style="color:var(--txt)">' + fmtInt(repo.size) + ' KB</b><br>' +
+      '◈ Last push: <b style="color:var(--acc)">' + pushed.toLocaleString() + '</b><br>' +
+      '◈ Pages: <b style="color:var(--txt)">' + (repo.has_pages ? 'enabled ✅' : 'disabled') + '</b>';
+    loadCommit(repo.default_branch);
+  }catch(e){
+    msg.textContent = 'Could not reach GitHub API: ' + e.message;
+    msg.className = 'msg err';
+  }
+}
+async function loadCommit(branch){
+  try{
+    const c = await api('/repos/' + AIDMIN.owner + '/' + AIDMIN.repo + '/commits?per_page=1&sha=' + encodeURIComponent(branch), getToken());
+    const cm = c[0].commit;
+    $('commit-info').innerHTML =
+      '<div style="color:var(--txt); font-weight:600">' + escapeHtml(cm.message.split('\n')[0]) + '</div>' +
+      '<div>by ' + escapeHtml(cm.author.name) + ' · ' + new Date(cm.author.date).toLocaleString() + '</div>' +
+      '<div style="font-family:ui-monospace,Menlo,monospace; font-size:12px; color:var(--acc)">' + c[0].sha.slice(0,7) + '</div>';
+  }catch(e){
+    $('commit-info').textContent = 'Could not load latest commit: ' + e.message;
+  }
+}
+function escapeHtml(s){ return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+</script>
+<script>
+/* ---------- GitHub token (browser-only, never committed) ---------- */
+const TKEY = 'aidmin_gh_token';
+const getToken = () => localStorage.getItem(TKEY) || '';
+function tokenStatus(){
+  const msg = $('token-msg'), has = !!getToken();
+  $('token-in').value = has ? '•••••••••••••••• (saved)' : '';
+  $('token-in').disabled = has;
+  msg.textContent = has ? 'Connected. Token lives only in this browser.' : '';
+  msg.className = 'msg' + (has ? ' ok' : '');
+  $('traffic-live').style.display = has ? 'block' : 'none';
+}
+$('token-save').onclick = () => {
+  const v = $('token-in').value.trim();
+  if(!v || v.indexOf('•') === 0) return;
+  localStorage.setItem(TKEY, v);
+  tokenStatus();
+  loadTraffic();
+};
+$('token-clear').onclick = () => {
+  localStorage.removeItem(TKEY);
+  Object.values(charts).forEach(c => { try{ c.destroy(); }catch(e){} });
+  for(const k in charts) delete charts[k];
+  tokenStatus();
+};
+
+/* ---------- traffic charts ---------- */
+const charts = {};
+if(window.Chart){
+  Chart.defaults.color = '#8fa3ad';
+  Chart.defaults.borderColor = 'rgba(28,42,51,.6)';
+  Chart.defaults.font.family = '-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif';
+}
+const dayLabel = ts => new Date(ts).toLocaleDateString('en-US', { month:'short', day:'numeric' });
+
+async function loadTraffic(){
+  const token = getToken();
+  if(!token) return;
+  const msg = $('token-msg');
+  const base = '/repos/' + AIDMIN.owner + '/' + AIDMIN.repo + '/traffic';
+  try{
+    const [views, clones, refs, paths] = await Promise.all([
+      api(base + '/views', token), api(base + '/clones', token),
+      api(base + '/popular/referrers', token), api(base + '/popular/paths', token),
+    ]);
+    renderViews(views); renderClones(clones); renderRefs(refs); renderPaths(paths);
+    msg.textContent = 'Traffic data loaded ✅';
+    msg.className = 'msg ok';
+  }catch(e){
+    msg.textContent = 'Traffic load failed: ' + e.message + ' — check the token has the "repo" scope and you have push access.';
+    msg.className = 'msg err';
+  }
+}
+function renderViews(d){
+  $('views-summary').textContent = fmtInt(d.count) + ' views · ' + fmtInt(d.uniques) + ' unique visitors across ' + d.views.length + ' days.';
+  const labels = d.views.map(v => dayLabel(v.timestamp));
+  mkChart('ch-views', {
+    type:'line',
+    data:{ labels, datasets:[
+      { label:'Views', data:d.views.map(v=>v.count), borderColor:'#39d0d8', backgroundColor:'rgba(57,208,216,.12)', fill:true, tension:.35, pointRadius:3 },
+      { label:'Unique', data:d.views.map(v=>v.uniques), borderColor:'#b5d334', backgroundColor:'transparent', tension:.35, pointRadius:3, borderDash:[5,4] },
+    ]},
+    options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{ position:'top' } }, scales:{ y:{ beginAtZero:true } } }
+  });
+}
+function renderClones(d){
+  $('clones-summary').textContent = fmtInt(d.count) + ' clones · ' + fmtInt(d.uniques) + ' unique cloners.';
+  mkChart('ch-clones', {
+    type:'bar',
+    data:{ labels:d.clones.map(c=>dayLabel(c.timestamp)), datasets:[
+      { label:'Clones', data:d.clones.map(c=>c.count), backgroundColor:'rgba(57,208,216,.55)', borderRadius:5 },
+    ]},
+    options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{ display:false } }, scales:{ y:{ beginAtZero:true } } }
+  });
+}
+function renderRefs(refs){
+  const top = refs.slice(0, 6);
+  const other = refs.slice(6).reduce((s, r) => s + r.count, 0);
+  const labels = top.map(r => r.referrer || '(direct)');
+  const data = top.map(r => r.count);
+  if(other > 0){ labels.push('other'); data.push(other); }
+  const palette = ['#39d0d8','#b5d334','#e8a33d','#8fa3ad','#5aa9e6','#c77dff','#e86a6a'];
+  mkChart('ch-ref', {
+    type:'doughnut',
+    data:{ labels, datasets:[{ data, backgroundColor:palette.slice(0, labels.length), borderColor:'#0b1116', borderWidth:3 }]},
+    options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{ position:'right' } }, cutout:'58%' }
+  });
+}
+function renderPaths(paths){
+  const host = $('paths');
+  const max = Math.max.apply(null, paths.map(p => p.count).concat([1]));
+  host.innerHTML = paths.slice(0, 8).map(p =>
+    '<div class="pathrow"><div class="p" title="' + escapeHtml(p.path) + '">' + escapeHtml(p.path) + '</div>'
+    + '<div class="pathbar" style="width:' + Math.max(4, Math.round(p.count / max * 120)) + 'px"></div>'
+    + '<div class="c">' + fmtInt(p.count) + '</div></div>'
+  ).join('') || '<div class="msg">No path data yet.</div>';
+}
+function mkChart(id, cfg){
+  const el = $(id);
+  if(!el || !window.Chart) return;
+  if(charts[id]){ try{ charts[id].destroy(); }catch(e){} }
+  charts[id] = new Chart(el, cfg);
+}
+$('refresh-btn').onclick = () => { loadVitals(); loadTraffic(); };
+
+/* ---------- init ---------- */
+window.addEventListener('load', () => {
+  setTimeout(() => { renderMeters(); }, 60); // let loadEventEnd settle
+});
+tokenStatus();
+loadVitals();
+if(getToken()) loadTraffic();
+</script>
+</body>
+</html>
