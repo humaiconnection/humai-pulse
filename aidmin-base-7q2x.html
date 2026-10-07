@@ -80,7 +80,7 @@
     <div class="logo">◈</div>
     <div>
       <h1>A.i.dmin <span>Base</span></h1>
-      <div class="sub"><span class="live"></span>humAi Pulse mission control · private</div>
+      <div class="sub"><span class="live"></span>humAi Pulse mission control · private · <span id="live-tick" style="color:var(--acc); font-weight:700">● live</span></div>
     </div>
   </header>
 
@@ -209,6 +209,12 @@ const AIDMIN = {
   owner: 'humaiconnection',
   repo:  'humai-pulse',
   siteUrl: 'https://humaiconnection.github.io/humai-pulse/',
+
+  /* Auto-refresh: the UI heartbeat ticks every 3s (zero API cost).
+     Full data re-pull runs every 60s — GitHub allows 5,000 API calls/hr
+     and one cycle costs 6, so 3s data polling would get rate-limited.
+     Refresh pauses while the tab is hidden. Traffic needs the token. */
+  AUTO_REFRESH: { tickSeconds: 3, dataSeconds: 60 },
 
   TABS: [
     { id:'overview', label:'Overview', icon:'◈' },
@@ -497,12 +503,36 @@ function mkChart(id, cfg){
 }
 $('refresh-btn').onclick = () => { loadVitals(); loadTraffic(); };
 
+/* ---------- auto-refresh engine ---------- */
+let lastDataRefresh = Date.now();
+function tickUI(){
+  const el = $('live-tick');
+  if(!el) return;
+  const s = Math.round((Date.now() - lastDataRefresh) / 1000);
+  el.textContent = '● live · updated ' + s + 's ago';
+}
+async function refreshCycle(){
+  if(document.hidden) return; // pause while the tab isn't visible
+  try{
+    await loadVitals();
+    if(getToken()) await loadTraffic(); // traffic = the "logged in" gate for now
+    renderMeters();
+  }catch(e){ /* panels already show their own errors; keep old data */ }
+  lastDataRefresh = Date.now();
+  tickUI();
+}
+setInterval(tickUI, AIDMIN.AUTO_REFRESH.tickSeconds * 1000);
+setInterval(refreshCycle, AIDMIN.AUTO_REFRESH.dataSeconds * 1000);
+document.addEventListener('visibilitychange', () => {
+  if(!document.hidden && Date.now() - lastDataRefresh > AIDMIN.AUTO_REFRESH.dataSeconds * 1000) refreshCycle();
+});
+
 /* ---------- init ---------- */
 window.addEventListener('load', () => {
   setTimeout(() => { renderMeters(); }, 60); // let loadEventEnd settle
 });
 tokenStatus();
-loadVitals();
+loadVitals().then(() => { lastDataRefresh = Date.now(); tickUI(); });
 if(getToken()) loadTraffic();
 </script>
 </body>
