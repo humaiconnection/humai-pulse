@@ -242,7 +242,8 @@ function render(){
   var tabs = SECTIONS.map(function(s){
     return '<button class="tab'+(s.id===active?' active':'')+'" data-tab="'+s.id+'">'+s.icon+' '+s.title+'</button>';
   }).join('')
-    + '<button class="tab'+(active==='wx'?' active':'')+'" data-tab="wx">⛅ Weather</button>';
+    + '<button class="tab'+(active==='wx'?' active':'')+'" data-tab="wx">⛅ Weather</button>'
+    + '<a class="tab" href="movies.html" style="text-decoration:none">🎬 Humaitainment</a>';
   document.getElementById('tabs').innerHTML = tabs;
 
   var nodes = document.querySelectorAll('#tabs .tab');
