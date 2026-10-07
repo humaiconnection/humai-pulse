@@ -78,6 +78,12 @@ var CATS = [
 var tabsEl = document.getElementById('tabs');
 var secsEl = document.getElementById('sections');
 
+var home = document.createElement('a');
+home.className = 'tab';
+home.href = 'index.html';
+home.textContent = '◈ Pulse';
+tabsEl.appendChild(home);
+
 CATS.forEach(function(c, i){
   var a = document.createElement('a');
   a.className = 'tab' + (i===0 ? ' active' : '');
