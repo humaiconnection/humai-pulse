@@ -322,7 +322,7 @@ const AIDMIN = {
    Baked in at deploy time: re-run `subscription-status status` and update
    used / resetISO below, then redeploy. The countdown re-renders every 60s
    with the data cycle; the % itself only changes when this is updated. */
-const CREDITS = { plan:'free', used:60, resetISO:'2026-10-09T23:16:00-05:00' };
+const CREDITS = { plan:'free', used:63, resetISO:'2026-10-09T23:16:00-05:00' };
 const api = (path, token) => fetch('https://api.github.com' + path, {
   headers: Object.assign({ 'Accept':'application/vnd.github+json' },
     token ? { 'Authorization':'Bearer ' + token } : {})
