@@ -185,6 +185,32 @@
     </div>
   </div>
 
+  <!-- HOST INFO -->
+  <div class="section" id="sec-host">
+    <div class="card" style="margin-bottom:14px">
+      <h2>💾 Hosting storage</h2>
+      <div class="blurb">Live from the GitHub API — this repo's real size on disk. GitHub recommends staying under <b>1 GB</b>; the hard ceiling is <b>5 GB</b>.</div>
+      <div class="grid" id="host-meters" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr))"></div>
+      <div style="margin-top:14px">
+        <div style="display:flex; justify-content:space-between; font-size:12px; color:var(--mut); margin-bottom:6px">
+          <span id="host-used-label">—</span><span id="host-free-label">—</span>
+        </div>
+        <div style="height:18px; border-radius:9px; background:var(--panel2); border:1px solid var(--line); overflow:hidden">
+          <div id="host-used-bar" style="height:100%; width:0%; background:linear-gradient(90deg,var(--acc),var(--acc-dim)); transition:width .6s"></div>
+        </div>
+      </div>
+    </div>
+    <div class="grid g3">
+      <div class="stat"><div class="k">💾 Space used</div><div class="v" id="host-used">—</div><div class="n">repo size on GitHub's disks, live</div></div>
+      <div class="stat"><div class="k">🆓 Space free</div><div class="v" id="host-free">—</div><div class="n">headroom under the 1 GB recommended cap</div></div>
+      <div class="stat"><div class="k">📊 Of cap used</div><div class="v" id="host-pct">—</div><div class="n">plenty of room to grow</div></div>
+    </div>
+    <div class="locknote" style="margin-top:14px">
+      <div style="font-size:20px">🛰️</div>
+      <div><b>Honest hosting note:</b> GitHub doesn't publish a per-site hosting-quota meter — the closest real number is the repository's actual size, pulled live from the GitHub API on every refresh. GitHub Pages also caps published sites at 1 GB with 100 GB/month bandwidth (bandwidth needs extra tooling to measure — a possible future meter).</div>
+    </div>
+  </div>
+
   <footer>A.i.dmin Base · unlisted &amp; unindexed · humAi Pulse mission control</footer>
 </div>
 <script>
@@ -219,6 +245,7 @@ const AIDMIN = {
     { id:'overview', label:'Overview', icon:'◈' },
     { id:'traffic',  label:'Traffic',  icon:'📈' },
     { id:'repo',     label:'Repo',     icon:'🗂' },
+    { id:'host',     label:'Host Info', icon:'💾' },
   ],
 
   /* Gauges on the Overview tab. get() must return a number. */
@@ -361,6 +388,7 @@ async function loadVitals(){
   const host = $('vitals'), msg = $('vitals-msg');
   try{
     const repo = await api('/repos/' + AIDMIN.owner + '/' + AIDMIN.repo, getToken());
+    lastRepo = repo; renderHost();
     host.innerHTML = '';
     AIDMIN.VITALS.forEach(v => {
       const d = document.createElement('div');
@@ -396,6 +424,34 @@ async function loadCommit(branch){
   }
 }
 function escapeHtml(s){ return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+/* ---------- host info: live repo size vs GitHub caps ---------- */
+let lastRepo = null;
+const HOST_CAP_MB = 1024; // GitHub's recommended repo size; hard ceiling is 5 GB
+const fmtSize = kb => (kb / 1024) >= 1 ? (kb / 1024).toFixed(2) + ' MB' : Math.round(kb) + ' KB';
+function hostGauge(label, value, unit, sub){
+  return '<div class="gauge-wrap">' + gaugeSVG('h-' + label, value, HOST_CAP_MB)
+    + '<div class="gauge-val">' + value.toFixed(value < 10 ? 2 : 1) + '</div>'
+    + '<div class="gauge-unit">' + unit + '</div>'
+    + '<div class="gauge-label">' + label + '</div>'
+    + '<div class="gauge-sub">' + sub + '</div></div>';
+}
+function renderHost(){
+  if(!lastRepo) return;
+  const kb = lastRepo.size || 0;
+  const usedMB = kb / 1024;
+  const freeMB = Math.max(0, HOST_CAP_MB - usedMB);
+  const pct = Math.min(100, usedMB / HOST_CAP_MB * 100);
+  $('host-meters').innerHTML =
+    hostGauge('Space used', usedMB, 'MB', 'of 1 GB recommended') +
+    hostGauge('Space free', freeMB, 'MB', 'remaining headroom');
+  $('host-used-bar').style.width = Math.max(0.5, pct) + '%';
+  $('host-used-label').textContent = 'Used: ' + fmtSize(kb);
+  $('host-free-label').textContent = 'Free: ' + freeMB.toFixed(1) + ' MB';
+  $('host-used').textContent = fmtSize(kb);
+  $('host-free').textContent = freeMB.toFixed(1) + ' MB';
+  $('host-pct').innerHTML = pct.toFixed(2) + '<small>%</small>';
+}
 </script>
 <script>
 /* ---------- GitHub token (browser-only, never committed) ---------- */
