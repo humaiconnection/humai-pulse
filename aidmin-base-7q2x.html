@@ -71,6 +71,28 @@
   .locknote{display:flex; gap:12px; align-items:flex-start; background:var(--panel2); border:1px dashed var(--line); border-radius:12px; padding:14px; font-size:12.5px; color:var(--mut); line-height:1.6}
   .locknote b{color:var(--warn)}
   footer{margin-top:26px; text-align:center; color:var(--mut); font-size:12px}
+  /* Muse credits meter */
+  .cr-bigrow{display:flex; gap:20px; align-items:center; margin:8px 0 14px}
+  .cr-bignum{font-size:44px; font-weight:800; line-height:1; color:var(--acc); font-variant-numeric:tabular-nums}
+  .cr-bignum.low{color:var(--bad); animation:crpulse 1.6s ease-in-out infinite}
+  .cr-lab{font-size:11px; color:var(--mut); margin-top:4px; text-transform:uppercase; letter-spacing:1px}
+  .cr-meterwrap{flex:1; min-width:0}
+  .cr-meter{position:relative; height:20px; border-radius:999px; overflow:hidden; background:#1a2417; border:1px solid var(--line)}
+  .cr-fill{height:100%; width:0; border-radius:999px; position:relative; background:linear-gradient(90deg,var(--acc-dim),var(--acc) 55%,var(--warn) 85%,var(--warn)); transition:width 1.2s cubic-bezier(.22,.9,.3,1)}
+  .cr-fill::after{content:""; position:absolute; inset:0; border-radius:999px; background:linear-gradient(105deg,transparent 30%,rgba(255,255,255,.35) 50%,transparent 70%); background-size:200% 100%; animation:crshimmer 2.8s linear infinite}
+  @keyframes crshimmer{from{background-position:180% 0}to{background-position:-80% 0}}
+  .cr-fill.low{background:linear-gradient(90deg,#a33,var(--bad)); animation:crpulse 1.6s ease-in-out infinite}
+  @keyframes crpulse{0%,100%{filter:brightness(1)}50%{filter:brightness(1.4)}}
+  .cr-tick{position:absolute; top:-2px; bottom:-2px; left:90%; width:2px; background:var(--bad); opacity:.85}
+  .cr-scale{display:flex; justify-content:space-between; font-size:10px; color:var(--mut); margin-top:5px}
+  .cr-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px; margin-bottom:6px}
+  .cr-stat{background:var(--panel2); border:1px solid var(--line); border-radius:12px; padding:12px; text-align:center}
+  .cr-stat .v{font-size:20px; font-weight:800; color:var(--txt); font-variant-numeric:tabular-nums}
+  .cr-stat .l{font-size:11px; color:var(--mut); margin-top:4px; line-height:1.4}
+  .cr-warn{border:2px solid var(--bad); border-radius:12px; padding:12px 14px; margin:10px 0 14px; background:rgba(232,106,106,.08); animation:crpulse 1.6s ease-in-out infinite}
+  .cr-warn .t{font-weight:800; font-size:14px; color:var(--bad); margin-bottom:4px}
+  .cr-warn div:last-child{font-size:12.5px; line-height:1.5; color:var(--txt)}
+  .cr-meta{font-size:11px; color:var(--mut); text-align:center; margin-top:8px}
   /* intro teleport overlay */
   #intro{position:fixed; inset:0; z-index:60; background:#000; cursor:pointer}
   #intro.fade{opacity:0; pointer-events:none}
@@ -117,6 +139,11 @@
         <div class="grid g4" id="vitals" style="grid-template-columns:repeat(auto-fit,minmax(120px,1fr))"></div>
         <div class="msg" id="vitals-msg"></div>
       </div>
+    </div>
+    <div class="card" style="margin-bottom:14px">
+      <h2>🔋 Muse credits</h2>
+      <div class="blurb">Free-plan weekly allowance. Numbers are baked in at deploy time (see CREDITS in the config hub); the countdown ticks live with the 60s data cycle.</div>
+      <div id="credits-body"></div>
     </div>
     <div class="locknote">
       <div style="font-size:20px">🛰️</div>
@@ -290,6 +317,12 @@ const AIDMIN = {
     { label:'Open issues', icon:'🐞', get:r => r.open_issues_count, note:'needs attention?' },
   ],
 };
+
+/* ---------- Muse credits (free-plan weekly allowance) ----------
+   Baked in at deploy time: re-run `subscription-status status` and update
+   used / resetISO below, then redeploy. The countdown re-renders every 60s
+   with the data cycle; the % itself only changes when this is updated. */
+const CREDITS = { plan:'free', used:60, resetISO:'2026-10-09T23:16:00-05:00' };
 const api = (path, token) => fetch('https://api.github.com' + path, {
   headers: Object.assign({ 'Accept':'application/vnd.github+json' },
     token ? { 'Authorization':'Bearer ' + token } : {})
@@ -384,6 +417,41 @@ function renderMeters(){
       + '<div class="gauge-sub">' + (m.sub ? m.sub() : '') + '</div>';
     host.appendChild(d);
   });
+}
+
+/* ---------- Muse credits meter ---------- */
+function crDur(ms){
+  if(ms <= 0) return 'now';
+  const m = Math.floor(ms/60000), d = Math.floor(m/1440), h = Math.floor((m%1440)/60), mm = m%60;
+  if(d > 0) return d + 'd ' + h + 'h';
+  if(h > 0) return h + 'h ' + mm + 'm';
+  return mm + 'm';
+}
+function crPace(c, now){
+  const reset = new Date(c.resetISO).getTime(), start = reset - 7*86400000;
+  const u = c.used, l = 100 - u;
+  if(l <= 0) return 'depleted';
+  const elapsedDays = Math.max((now - start)/86400000, 0.01);
+  const burn = u / elapsedDays;
+  if(burn <= 0) return '—';
+  return '~' + crDur((l / burn) * 86400000);
+}
+function renderCredits(){
+  const host = $('credits-body');
+  if(!host) return;
+  const c = CREDITS, u = c.used, l = 100 - u, low = l <= 10;
+  const now = Date.now(), resetMs = new Date(c.resetISO).getTime();
+  host.innerHTML =
+    (low ? '<div class="cr-warn"><div class="t">Low credits — under 10% left</div><div>Only ' + l + '% of your free weekly credits remain. Heavy work may stall until the reset — consider lighter tasks.</div></div>' : '')
+    + '<div class="cr-bigrow"><div><div class="cr-bignum' + (low ? ' low' : '') + '">' + l + '%</div><div class="cr-lab">remaining</div></div>'
+    + '<div class="cr-meterwrap"><div class="cr-meter"><div class="cr-fill' + (low ? ' low' : '') + '" style="width:' + u + '%"></div><div class="cr-tick"></div></div>'
+    + '<div class="cr-scale"><span>0% used</span><span>10% left warning line</span><span>100%</span></div></div></div>'
+    + '<div class="cr-grid">'
+    + '<div class="cr-stat"><div class="v">' + u + '%</div><div class="l">used so far</div></div>'
+    + '<div class="cr-stat"><div class="v">' + crDur(resetMs - now) + '</div><div class="l">until weekly reset</div></div>'
+    + '<div class="cr-stat"><div class="v">' + crPace(c, now) + '</div><div class="l">to zero at current pace</div></div>'
+    + '</div>'
+    + '<div class="cr-meta">Countdown ticks with the 60s data cycle · credit % baked in at deploy</div>';
 }
 
 /* ---------- probe the public site ---------- */
@@ -593,6 +661,7 @@ async function refreshCycle(){
     await loadVitals();
     if(getToken()) await loadTraffic(); // traffic = the "logged in" gate for now
     renderMeters();
+    renderCredits();
     playLogoGif(); // replay the logo animation each cycle
   }catch(e){ /* panels already show their own errors; keep old data */ }
   lastDataRefresh = Date.now();
@@ -729,7 +798,7 @@ function playLogoGif(){
 
 /* ---------- init ---------- */
 window.addEventListener('load', () => {
-  setTimeout(() => { renderMeters(); }, 60); // let loadEventEnd settle
+  setTimeout(() => { renderMeters(); renderCredits(); }, 60); // let loadEventEnd settle
   setTimeout(playLogoGif, 2300); // first play, right after the intro fades
 });
 tokenStatus();
