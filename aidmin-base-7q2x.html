@@ -777,7 +777,7 @@ document.addEventListener('visibilitychange', () => {
   const t0 = performance.now();
   function frame(now){
     if(done) return;
-    const t = (now - t0) / 1000;
+    const t = Math.max(0, (now - t0) / 1000); // rAF timestamps can predate t0 on cold loads; never go negative
     const build = Math.min(1, t / 1.35); // convergence progress 0→1
     ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H);
     if(Math.random() < 0.3 + build * 0.65 && arcs.length < 26) newArc();
