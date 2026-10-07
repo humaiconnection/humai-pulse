@@ -349,7 +349,7 @@ render();
   var t0 = performance.now();
   function frame(now){
     if(done) return;
-    var t = (now - t0) / 1000;
+    var t = Math.max(0, (now - t0) / 1000); // rAF timestamps can predate t0 on cold loads; never go negative
     var build = Math.min(1, t / 1.35), j, k, p, a;
     ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H);
     if(Math.random() < 0.3 + build * 0.65 && arcs.length < 26) newArc();
