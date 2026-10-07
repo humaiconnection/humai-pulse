@@ -20,6 +20,7 @@
   .sub{color:var(--mut); font-size:13px; margin:2px 0 18px}
   .sub .live{display:inline-block; width:8px; height:8px; border-radius:50%; background:var(--acc); margin-right:6px; animation:pulse 1.6s infinite}
   @keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+  /* tabs */
   .tabs{position:sticky; top:0; z-index:5; display:flex; gap:8px; flex-wrap:wrap; padding:10px 0; margin-bottom:16px; background:var(--bg)}
   .tab{padding:10px 14px; border-radius:10px; border:1px solid var(--line); background:var(--panel); color:var(--mut); font-size:13px; font-weight:700; cursor:pointer}
   .tab:hover{border-color:var(--acc); color:var(--txt)}
@@ -36,6 +37,7 @@
   .rank{display:inline-flex; align-items:center; justify-content:center; width:22px; height:22px; border-radius:7px; background:var(--panel2); border:1px solid var(--line); color:var(--acc); font-size:12px; font-weight:800; margin-right:8px; vertical-align:1px}
   .foot{margin-top:10px; font-size:12px}
   .foot a{color:var(--acc); text-decoration:none; font-weight:600}
+  /* weather */
   .wx-now{display:flex; align-items:baseline; gap:10px; margin:4px 0 8px}
   .wx-temp{font-size:38px; font-weight:800; color:var(--acc)}
   .wx-cond{font-size:14px; color:var(--txt)}
@@ -51,9 +53,15 @@
   .zipmsg.err{color:#e88}
   footer{margin-top:26px; text-align:center; color:var(--mut); font-size:12px; line-height:1.7}
   footer a{color:var(--acc); text-decoration:none}
+  /* intro teleport overlay */
+  #intro{position:fixed; inset:0; z-index:60; background:#000; cursor:pointer}
+  #intro.fade{opacity:0; pointer-events:none}
+  #intro-cv{position:absolute; inset:0; width:100%; height:100%; display:block}
+  #intro-skip{position:absolute; bottom:16px; right:18px; font-size:11px; letter-spacing:1px; color:var(--mut); text-transform:uppercase; opacity:.7}
 </style>
 </head>
 <body>
+<div id="intro"><span id="intro-skip">tap to skip</span></div>
 <div class="wrap">
   <header>
     <div class="logo">h</div>
@@ -68,6 +76,14 @@
   </footer>
 </div>
 <script>
+/* ============================================================================
+   humAi Pulse — section config.
+   ----------------------------------------------------------------------------
+   TO ADD A NEW SECTION LATER: copy any one of the objects below, paste it
+   into the SECTIONS array, and change id / title / icon / blurb / items.
+   A tab button for it appears automatically — no other code to touch.
+   Each item: { t: "headline", u: "https://link", m: "small meta line (HTML ok)" }
+   ============================================================================ */
 var SECTIONS = [
   { id: "x", title: "Top X Posts", icon: "𝕏", blurb: "The loudest posts on X right now",
     items: [
@@ -100,7 +116,7 @@ var SECTIONS = [
     items: [
       { t: "<span class='rank'>1</span>Taylor Swift — “Patient Zero”", u: "https://www.billboard.com/charts/hot-100/", m: "New #1 &middot; her 16th chart-topper" },
       { t: "<span class='rank'>2</span>Ella Langley — “Choosin' Texas”", u: "https://www.billboard.com/charts/hot-100/", m: "Down from #1 after a historic 24-week run" },
-      { t: "<span class='rank'>3</span>Taylor Swift — “Cleveland!”", u: "https://www.billboard.com/charts/hot-100/", m: "" },
+      { t: "<span class='rank'>3</span>Taylor Swift — “Cleveland!”", u: "https://www.billboard.com/charts/hot-100/", m: "Encore deluxe takes 4 of the top 5" },
       { t: "<span class='rank'>4</span>Taylor Swift — “Babylon”", u: "https://www.billboard.com/charts/hot-100/", m: "" },
       { t: "<span class='rank'>5</span>Taylor Swift — “Pink Clouding”", u: "https://www.billboard.com/charts/hot-100/", m: "" } ],
     foot: "<a href='https://www.billboard.com/charts/hot-100/'>Full Billboard Hot 100 →</a>" },
@@ -113,16 +129,31 @@ var SECTIONS = [
       { t: "<span class='rank'>5</span>Digger — $8.0M", u: "https://editorial.rottentomatoes.com/article/weekend-box-office-verity-week-1/", m: "Warner Bros &middot; Tom Cruise stumbles" } ],
     foot: "<a href='https://www.boxofficemojo.com/'>Box Office Mojo →</a>" }
 ];
-var DEFAULT_ZIPS = ["90210","10001","60601","30301","75201","94102","98101","80201","02101","33101"]; var WX = { zip:"", label:"Picking a location…", temp:"--", cond:"loading…", humidity:"--", wind:"--", low:"--", high:"--", next:"--" };
+
+/* No fixed default location: on each load a random US ZIP is picked so no
+   single ZIP (like the owner's) is ever advertised. Live Open-Meteo data
+   replaces this placeholder within a second or two of load. */
+var DEFAULT_ZIPS = ["90210","10001","60601","30301","75201","94102","98101","80201","02101","33101"];
+var WX = { zip:"", label:"Picking a location…", temp:"--", cond:"loading…", humidity:"--", wind:"--", low:"--", high:"--", next:"--" };
+
 var WMO = {0:"Clear sky",1:"Mostly clear",2:"Partly cloudy",3:"Overcast",45:"Foggy",48:"Icy fog",51:"Light drizzle",53:"Drizzle",55:"Heavy drizzle",56:"Freezing drizzle",57:"Freezing drizzle",61:"Light rain",63:"Rain",65:"Heavy rain",66:"Freezing rain",67:"Freezing rain",71:"Light snow",73:"Snow",75:"Heavy snow",77:"Snow grains",80:"Light showers",81:"Showers",82:"Violent showers",85:"Snow showers",86:"Snow showers",95:"Thunderstorm",96:"Storm + hail",99:"Storm + hail"};
 function wmo(c){ return WMO[c] || "—"; }
 function compass(d){ var dirs=["N","NNE","NE","ENE","E","ESE","SE","SSE","S","SSW","SW","WSW","W","WNW","NW","NNW"]; return dirs[Math.round(d/22.5)%16]; }
+
+/* Intro teleport: fullscreen neon-green canvas effect on every load.
+   flashAt = seconds until the peak-white frame, where the fade begins.
+   Tweak colors/timing here; the engine is at the bottom of the script. */
+var INTRO = { flashAt: 1.65, fadeMs: 450 };
+
+/* Tabs: one button per section plus Weather. The active tab follows the URL
+   hash (e.g. .../humai-pulse/#ainews), so tabs are linkable. */
 function currentTab(){
   var h = (location.hash || "").replace("#","");
   if (h === "wx") return "wx";
   for (var i = 0; i < SECTIONS.length; i++) if (SECTIONS[i].id === h) return h;
   return "x";
 }
+
 function sectionCard(s){
   return '<div class="card"><h2><span class="ic">'+s.icon+'</span>'+s.title+'</h2>'
     + '<div class="blurb">'+s.blurb+'</div>'
@@ -133,6 +164,7 @@ function sectionCard(s){
     + (s.foot ? '<div class="foot">'+s.foot+'</div>' : '')
     + '</div>';
 }
+
 function weatherCard(){
   return '<div class="card"><h2><span class="ic">⛅</span>Weather</h2>'
     + '<div class="blurb">'+WX.label+' '+WX.zip+' — live via Open-Meteo</div>'
@@ -145,7 +177,34 @@ function weatherCard(){
     + '<button class="zipbtn" id="zipbtn">Update</button></div>'
     + '<div class="zipmsg" id="zipmsg"></div></div>';
 }
-function loadWeather(zip, onDone){ fetch('https://geocoding-api.open-meteo.com/v1/search?name='+encodeURIComponent(zip)+'&count=1&language=en&format=json').then(function(r){ if(!r.ok) throw new Error('net'); return r.json(); }).then(function(gj){ if (!gj.results || !gj.results.length) throw new Error('notfound'); var p = gj.results[0]; var label = p.name + (p.admin1 ? ', '+p.admin1 : ''); var furl = 'https://api.open-meteo.com/v1/forecast?latitude='+p.latitude+'&longitude='+p.longitude + '&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m,wind_direction_10m' + '&daily=temperature_2m_max,temperature_2m_min,weather_code' + '&temperature_unit=fahrenheit&wind_speed_unit=mph&timezone=auto&forecast_days=2'; return fetch(furl).then(function(r){ if(!r.ok) throw new Error('net'); return r.json(); }).then(function(f){ var c = f.current, dl = f.daily; WX = { zip: zip, label: label, temp: Math.round(c.temperature_2m)+'°F', cond: wmo(c.weather_code), humidity: Math.round(c.relative_humidity_2m)+'%', wind: compass(c.wind_direction_10m)+' ~'+Math.round(c.wind_speed_10m)+' mph', low: Math.round(dl.temperature_2m_min[0])+'°F', high: Math.round(dl.temperature_2m_max[1])+'°F', next: new Date(dl.time[1]+'T12:00:00').toLocaleDateString('en-US',{weekday:'long', month:'short', day:'numeric'}) }; if (onDone) onDone(null); }); }).catch(function(e){ if (onDone) onDone(e); }); } function bindWeather(){
+
+/* Fetch live weather for a ZIP via Open-Meteo. onDone(err) runs when finished. */
+function loadWeather(zip, onDone){
+  fetch('https://geocoding-api.open-meteo.com/v1/search?name='+encodeURIComponent(zip)+'&count=1&language=en&format=json')
+    .then(function(r){ if(!r.ok) throw new Error('net'); return r.json(); })
+    .then(function(gj){
+      if (!gj.results || !gj.results.length) throw new Error('notfound');
+      var p = gj.results[0];
+      var label = p.name + (p.admin1 ? ', '+p.admin1 : '');
+      var furl = 'https://api.open-meteo.com/v1/forecast?latitude='+p.latitude+'&longitude='+p.longitude
+        + '&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m,wind_direction_10m'
+        + '&daily=temperature_2m_max,temperature_2m_min,weather_code'
+        + '&temperature_unit=fahrenheit&wind_speed_unit=mph&timezone=auto&forecast_days=2';
+      return fetch(furl).then(function(r){ if(!r.ok) throw new Error('net'); return r.json(); })
+        .then(function(f){
+          var c = f.current, dl = f.daily;
+          WX = { zip: zip, label: label,
+            temp: Math.round(c.temperature_2m)+'°F', cond: wmo(c.weather_code),
+            humidity: Math.round(c.relative_humidity_2m)+'%', wind: compass(c.wind_direction_10m)+' ~'+Math.round(c.wind_speed_10m)+' mph',
+            low: Math.round(dl.temperature_2m_min[0])+'°F', high: Math.round(dl.temperature_2m_max[1])+'°F',
+            next: new Date(dl.time[1]+'T12:00:00').toLocaleDateString('en-US',{weekday:'long', month:'short', day:'numeric'}) };
+          if (onDone) onDone(null);
+        });
+    })
+    .catch(function(e){ if (onDone) onDone(e); });
+}
+
+function bindWeather(){
   var btn = document.getElementById('zipbtn'), inp = document.getElementById('zipin'), msg = document.getElementById('zipmsg');
   if (!btn) return;
   function go(){
@@ -153,36 +212,20 @@ function loadWeather(zip, onDone){ fetch('https://geocoding-api.open-meteo.com/v
     if (!/^\d{5}$/.test(zip)){ msg.textContent = 'Enter a 5-digit US ZIP code.'; msg.classList.add('err'); return; }
     btn.disabled = true; btn.classList.add('busy'); btn.textContent = 'Updating…';
     msg.classList.remove('err'); msg.textContent = 'Looking up ' + zip + '…';
-    fetch('https://geocoding-api.open-meteo.com/v1/search?name='+encodeURIComponent(zip)+'&count=1&language=en&format=json')
-      .then(function(r){ if(!r.ok) throw new Error('net'); return r.json(); })
-      .then(function(gj){
-        if (!gj.results || !gj.results.length) throw new Error('notfound');
-        var p = gj.results[0];
-        var label = p.name + (p.admin1 ? ', '+p.admin1 : '');
-        var furl = 'https://api.open-meteo.com/v1/forecast?latitude='+p.latitude+'&longitude='+p.longitude
-          + '&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m,wind_direction_10m'
-          + '&daily=temperature_2m_max,temperature_2m_min,weather_code'
-          + '&temperature_unit=fahrenheit&wind_speed_unit=mph&timezone=auto&forecast_days=2';
-        return fetch(furl).then(function(r){ if(!r.ok) throw new Error('net'); return r.json(); })
-          .then(function(f){
-            var c = f.current, dl = f.daily;
-            WX = { zip: zip, label: label,
-              temp: Math.round(c.temperature_2m)+'°F', cond: wmo(c.weather_code),
-              humidity: Math.round(c.relative_humidity_2m)+'%', wind: compass(c.wind_direction_10m)+' ~'+Math.round(c.wind_speed_10m)+' mph',
-              low: Math.round(dl.temperature_2m_min[0])+'°F', high: Math.round(dl.temperature_2m_max[1])+'°F',
-              next: new Date(dl.time[1]+'T12:00:00').toLocaleDateString('en-US',{weekday:'long', month:'short', day:'numeric'}) };
-            render();
-          });
-      })
-      .catch(function(e){
+    loadWeather(zip, function(e){
+      if (e){
         msg.textContent = (e && e.message === 'notfound') ? 'ZIP code not found — try another.' : 'Couldn’t reach the weather service. Try again.';
         msg.classList.add('err');
         btn.disabled = false; btn.classList.remove('busy'); btn.textContent = 'Update';
-      });
+      } else {
+        render();
+      }
+    });
   }
   btn.onclick = go;
   inp.addEventListener('keydown', function(e){ if (e.key === 'Enter') go(); });
 }
+
 function render(){
   var active = currentTab();
   var tabs = SECTIONS.map(function(s){
@@ -190,10 +233,12 @@ function render(){
   }).join('')
     + '<button class="tab'+(active==='wx'?' active':'')+'" data-tab="wx">⛅ Weather</button>';
   document.getElementById('tabs').innerHTML = tabs;
+
   var nodes = document.querySelectorAll('#tabs .tab');
   for (var i = 0; i < nodes.length; i++){
     nodes[i].onclick = function(){ location.hash = this.getAttribute('data-tab'); };
   }
+
   var content = document.getElementById('content');
   if (active === 'wx'){
     content.innerHTML = weatherCard();
@@ -204,12 +249,118 @@ function render(){
     }
   }
   window.scrollTo(0, 0);
+
   var d = new Date();
   document.getElementById('dateline').textContent =
     d.toLocaleDateString('en-US',{weekday:'long', month:'long', day:'numeric', year:'numeric'});
 }
+
 window.addEventListener('hashchange', render);
 render();
-(function(){ var rz = DEFAULT_ZIPS[Math.floor(Math.random()*DEFAULT_ZIPS.length)]; loadWeather(rz, function(){ if (currentTab() === 'wx') render(); }); })();</script>
+/* Random default location on every load — live data fills in right away,
+   and the Weather tab re-renders if it's the one being viewed. */
+(function(){
+  var rz = DEFAULT_ZIPS[Math.floor(Math.random()*DEFAULT_ZIPS.length)];
+  loadWeather(rz, function(){ if (currentTab() === 'wx') render(); });
+})();
+
+/* ---------- intro teleport (fullscreen, fade starts at peak white) ---------- */
+(function intro(){
+  var cfg = window.INTRO || { flashAt: 1.65, fadeMs: 450 };
+  var ov = document.getElementById('intro');
+  if(!ov) return;
+  ov.style.transition = 'opacity ' + cfg.fadeMs + 'ms ease';
+  var done = false;
+  function finish(){
+    if(done) return; done = true;
+    ov.classList.add('fade');
+    setTimeout(function(){ ov.remove(); }, cfg.fadeMs + 60);
+  }
+  ov.addEventListener('click', finish);
+  var cv = document.createElement('canvas');
+  cv.id = 'intro-cv';
+  ov.insertBefore(cv, ov.firstChild);
+  var ctx = cv.getContext('2d');
+  var W = 0, H = 0;
+  function size(){
+    var DPR = Math.min(2, window.devicePixelRatio || 1);
+    W = window.innerWidth; H = window.innerHeight;
+    cv.width = W * DPR; cv.height = H * DPR;
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  }
+  size(); window.addEventListener('resize', size);
+  function cx(){ return W / 2; } function cy(){ return H / 2; }
+  function spawn(any){
+    var edge = (Math.random() * 4) | 0, x, y;
+    if(edge === 0){ x = Math.random() * W; y = -12; }
+    else if(edge === 1){ x = Math.random() * W; y = H + 12; }
+    else if(edge === 2){ x = -12; y = Math.random() * H; }
+    else { x = W + 12; y = Math.random() * H; }
+    var dx = cx() - x, dy = cy() - y, d = Math.hypot(dx, dy) || 1;
+    var sp = (0.5 + Math.random() * 0.9) * (any ? (0.3 + Math.random() * 0.7) : 0.12);
+    return { x:x, y:y, vx:dx / d * sp * 9, vy:dy / d * sp * 9,
+             sz:1 + Math.random() * 2.2, warm:Math.random() < 0.18 };
+  }
+  var parts = [], i;
+  for(i = 0; i < 170; i++) parts.push(spawn(true));
+  var arcs = [];
+  function newArc(){
+    var a = Math.random() * Math.PI * 2, r = Math.max(W, H) * 0.72;
+    var sx = cx() + Math.cos(a) * r, sy = cy() + Math.sin(a) * r;
+    var pts = [[sx, sy]], k, t;
+    for(k = 1; k <= 7; k++){
+      t = k / 7;
+      pts.push([cx() + (sx - cx()) * (1 - t) + (Math.random() - 0.5) * 52,
+                cy() + (sy - cy()) * (1 - t) + (Math.random() - 0.5) * 52]);
+    }
+    arcs.push({ pts:pts, life:1, decay:0.025 + Math.random() * 0.035 });
+  }
+  var t0 = performance.now();
+  function frame(now){
+    if(done) return;
+    var t = (now - t0) / 1000;
+    var build = Math.min(1, t / 1.35), j, k, p, a;
+    ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H);
+    if(Math.random() < 0.3 + build * 0.65 && arcs.length < 26) newArc();
+    ctx.lineWidth = 1.6;
+    for(j = arcs.length - 1; j >= 0; j--){
+      a = arcs[j]; a.life -= a.decay;
+      if(a.life <= 0){ arcs.splice(j, 1); continue; }
+      ctx.strokeStyle = 'rgba(181,211,52,' + (a.life * 0.9).toFixed(3) + ')';
+      ctx.shadowColor = '#b5d334'; ctx.shadowBlur = 14 * a.life;
+      ctx.beginPath(); ctx.moveTo(a.pts[0][0], a.pts[0][1]);
+      for(k = 1; k < a.pts.length; k++) ctx.lineTo(a.pts[k][0], a.pts[k][1]);
+      ctx.stroke();
+    }
+    ctx.shadowBlur = 0;
+    var accel = 1 + build * 2.4;
+    for(j = 0; j < parts.length; j++){
+      p = parts[j];
+      p.x += p.vx * accel; p.y += p.vy * accel;
+      if(Math.hypot(cx() - p.x, cy() - p.y) < 24){ p = spawn(false); parts[j] = p; }
+      ctx.fillStyle = p.warm ? 'rgba(235,255,190,' + (0.35 + build * 0.6).toFixed(3) + ')'
+                             : 'rgba(181,211,52,' + (0.35 + build * 0.6).toFixed(3) + ')';
+      ctx.beginPath(); ctx.arc(p.x, p.y, p.sz, 0, 7); ctx.fill();
+    }
+    var gr = ctx.createRadialGradient(cx(), cy(), 0, cx(), cy(), Math.max(W, H) * 0.3 * build + 6);
+    gr.addColorStop(0, 'rgba(181,211,52,' + (0.22 + build * 0.6).toFixed(3) + ')');
+    gr.addColorStop(1, 'rgba(181,211,52,0)');
+    ctx.fillStyle = gr; ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = 'rgba(0,0,0,0.16)';
+    for(var y = 0; y < H; y += 4) ctx.fillRect(0, y, W, 1);
+    if(t < cfg.flashAt){
+      ctx.fillStyle = 'rgba(181,211,52,0.75)';
+      ctx.font = '12px ui-monospace,Menlo,monospace'; ctx.textAlign = 'center';
+      ctx.fillText('TUNING THE PULSE …', cx(), H - 44);
+      requestAnimationFrame(frame);
+    } else {
+      ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, W, H); // peak-white frame
+      finish(); // fade starts exactly here
+    }
+  }
+  requestAnimationFrame(frame);
+  setTimeout(finish, 8000); // safety: never trap the user
+})();
+</script>
 </body>
 </html>
