@@ -4,6 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>humAi Pulse — What's Happening</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
 <style>
   :root{
     --bg:#070b06; --panel:#0e140c; --panel2:#111a0e; --line:#22331c;
@@ -52,6 +54,9 @@
   .zipbtn.busy{opacity:.55; cursor:default}
   .zipmsg{font-size:12px; margin-top:8px; min-height:16px; color:var(--mut)}
   .zipmsg.err{color:#e88}
+  .radar-label{font-size:11px; color:var(--mut); text-transform:uppercase; letter-spacing:1px; margin-top:14px}
+  #radar{height:260px; border-radius:12px; margin-top:8px; border:1px solid var(--line); background:#0a0f06; position:relative; z-index:0}
+  .leaflet-container{font-family:inherit; background:#0a0f06}
   footer{margin-top:26px; text-align:center; color:var(--mut); font-size:12px; line-height:1.7}
   footer a{color:var(--acc); text-decoration:none}
   /* intro teleport overlay */
@@ -135,7 +140,7 @@ var SECTIONS = [
    single ZIP (like the owner's) is ever advertised. Live Open-Meteo data
    replaces this placeholder within a second or two of load. */
 var DEFAULT_ZIPS = ["90210","10001","60601","30301","75201","94102","98101","80201","02101","33101"];
-var WX = { zip:"", label:"Picking a location…", temp:"--", cond:"loading…", humidity:"--", wind:"--", low:"--", high:"--", next:"--" };
+var WX = { zip:"", label:"Picking a location…", temp:"--", cond:"loading…", humidity:"--", wind:"--", low:"--", high:"--", next:"--", lat:null, lon:null };
 
 var WMO = {0:"Clear sky",1:"Mostly clear",2:"Partly cloudy",3:"Overcast",45:"Foggy",48:"Icy fog",51:"Light drizzle",53:"Drizzle",55:"Heavy drizzle",56:"Freezing drizzle",57:"Freezing drizzle",61:"Light rain",63:"Rain",65:"Heavy rain",66:"Freezing rain",67:"Freezing rain",71:"Light snow",73:"Snow",75:"Heavy snow",77:"Snow grains",80:"Light showers",81:"Showers",82:"Violent showers",85:"Snow showers",86:"Snow showers",95:"Thunderstorm",96:"Storm + hail",99:"Storm + hail"};
 function wmo(c){ return WMO[c] || "—"; }
@@ -180,7 +185,8 @@ function weatherCard(){
     + '</div>'
     + '<div class="ziprow"><input class="zipin" id="zipin" inputmode="numeric" placeholder="Enter ZIP code" value="">'
     + '<button class="zipbtn" id="zipbtn">Update</button></div>'
-    + '<div class="zipmsg" id="zipmsg"></div></div>';
+    + '<div class="zipmsg" id="zipmsg"></div>'
+    + '<div class="radar-label">Live radar · RainViewer</div><div id="radar"></div></div>';
 }
 
 /* Fetch live weather for a ZIP via Open-Meteo. onDone(err) runs when finished. */
@@ -198,7 +204,7 @@ function loadWeather(zip, onDone){
       return fetch(furl).then(function(r){ if(!r.ok) throw new Error('net'); return r.json(); })
         .then(function(f){
           var c = f.current, dl = f.daily;
-          WX = { zip: zip, label: label,
+          WX = { zip: zip, label: label, lat: p.latitude, lon: p.longitude,
             temp: Math.round(c.temperature_2m)+'°F', cond: wmo(c.weather_code),
             humidity: Math.round(c.relative_humidity_2m)+'%', wind: compass(c.wind_direction_10m)+' ~'+Math.round(c.wind_speed_10m)+' mph',
             low: Math.round(dl.temperature_2m_min[0])+'°F', high: Math.round(dl.temperature_2m_max[1])+'°F',
@@ -246,8 +252,10 @@ function render(){
 
   var content = document.getElementById('content');
   if (active === 'wx'){
+    if(window._radarMap){ try{ window._radarMap.remove(); }catch(e){} window._radarMap = null; }
     content.innerHTML = weatherCard();
     bindWeather();
+    initRadar();
   } else {
     for (var j = 0; j < SECTIONS.length; j++){
       if (SECTIONS[j].id === active){ content.innerHTML = sectionCard(SECTIONS[j]); break; }
@@ -258,6 +266,23 @@ function render(){
   var d = new Date();
   document.getElementById('dateline').textContent =
     d.toLocaleDateString('en-US',{weekday:'long', month:'long', day:'numeric', year:'numeric'});
+}
+
+/* Live radar: RainViewer tiles (free, no key) on a Leaflet map, centered on
+   the displayed location. Recenters whenever the ZIP changes. */
+function initRadar(){
+  var el = document.getElementById('radar');
+  if(!el || typeof L === 'undefined' || WX.lat == null || WX.lon == null) return;
+  var map = L.map('radar', { zoomControl: true }).setView([WX.lat, WX.lon], 7);
+  window._radarMap = map;
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { maxZoom: 12 }).addTo(map);
+  fetch('https://api.rainviewer.com/public/weather-maps.json').then(function(r){ return r.json(); }).then(function(j){
+    var frames = (j.radar && j.radar.past) || [];
+    if(!frames.length) return;
+    var last = frames[frames.length - 1];
+    L.tileLayer('https://tilecache.rainviewer.com' + last.path + '/256/{z}/{x}/{y}/2/1_1.png', { opacity: 0.7, zIndex: 10 }).addTo(map);
+  }).catch(function(){ /* radar tiles optional; base map still shows */ });
+  setTimeout(function(){ map.invalidateSize(); }, 350);
 }
 
 window.addEventListener('hashchange', render);
