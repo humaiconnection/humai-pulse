@@ -70,10 +70,17 @@
   .locknote{display:flex; gap:12px; align-items:flex-start; background:var(--panel2); border:1px dashed var(--line); border-radius:12px; padding:14px; font-size:12.5px; color:var(--mut); line-height:1.6}
   .locknote b{color:var(--warn)}
   footer{margin-top:26px; text-align:center; color:var(--mut); font-size:12px}
+  /* intro teleport overlay */
+  #intro{position:fixed; inset:0; z-index:60; background:#000; cursor:pointer}
+  #intro.fade{opacity:0; pointer-events:none}
+  #intro-cv{position:absolute; inset:0; width:100%; height:100%; display:block}
+  #intro video{position:absolute; inset:0; width:100%; height:100%; object-fit:cover}
+  #intro-skip{position:absolute; bottom:16px; right:18px; font-size:11px; letter-spacing:1px; color:var(--mut); text-transform:uppercase; opacity:.7}
   @media(max-width:560px){ .gauge-val{font-size:26px} }
 </style>
 </head>
 <body>
+<div id="intro"><span id="intro-skip">tap to skip</span></div>
 <div class="wrap">
   <header>
     <div class="logo">◈</div>
@@ -240,6 +247,13 @@ const AIDMIN = {
      and one cycle costs 6, so 3s data polling would get rate-limited.
      Refresh pauses while the tab is hidden. Traffic needs the token. */
   AUTO_REFRESH: { tickSeconds: 3, dataSeconds: 60 },
+
+  /* Intro teleport: 'canvas' = zero-byte procedural neon effect (default);
+     'video' = plays INTRO.videoSrc fullscreen instead (the mp4 must be
+     uploaded to the repo via the GitHub web UI — binary files can't ride
+     the text deploy pipe). The fade starts exactly at flashAt: the frame
+     of peak white intensity. */
+  INTRO: { mode:'canvas', videoSrc:'assets/teleport-intro.mp4', flashAt:1.65, fadeMs:450 },
 
   TABS: [
     { id:'overview', label:'Overview', icon:'◈' },
@@ -581,6 +595,119 @@ setInterval(refreshCycle, AIDMIN.AUTO_REFRESH.dataSeconds * 1000);
 document.addEventListener('visibilitychange', () => {
   if(!document.hidden && Date.now() - lastDataRefresh > AIDMIN.AUTO_REFRESH.dataSeconds * 1000) refreshCycle();
 });
+
+/* ---------- intro teleport (fullscreen, fade starts at peak white) ---------- */
+(function intro(){
+  const cfg = AIDMIN.INTRO;
+  if(!cfg || cfg.enabled === false) { const o = $('intro'); if(o) o.remove(); return; }
+  const ov = $('intro');
+  ov.style.transition = 'opacity ' + cfg.fadeMs + 'ms ease';
+  let done = false;
+  const finish = () => { if(done) return; done = true; ov.classList.add('fade'); setTimeout(() => ov.remove(), cfg.fadeMs + 60); };
+  ov.addEventListener('click', finish);
+
+  if(cfg.mode === 'video'){
+    // Fullscreen video intro. Fade begins the moment currentTime passes flashAt.
+    const v = document.createElement('video');
+    v.src = cfg.videoSrc; v.muted = true; v.playsInline = true; v.autoplay = true;
+    ov.insertBefore(v, ov.firstChild);
+    v.play().catch(() => finish());
+    (function watch(){
+      if(done) return;
+      if(v.currentTime >= cfg.flashAt || v.ended){ finish(); return; }
+      requestAnimationFrame(watch);
+    })();
+    v.addEventListener('ended', finish);
+    setTimeout(finish, 8000); // safety: never trap the user
+    return;
+  }
+
+  // Procedural canvas intro: neon arcs + particles converge, white flash
+  // peaks at exactly flashAt seconds, and the fade starts on that frame.
+  const cv = document.createElement('canvas');
+  cv.id = 'intro-cv';
+  ov.insertBefore(cv, ov.firstChild);
+  const ctx = cv.getContext('2d');
+  let W = 0, H = 0;
+  function size(){
+    const DPR = Math.min(2, window.devicePixelRatio || 1);
+    W = window.innerWidth; H = window.innerHeight;
+    cv.width = W * DPR; cv.height = H * DPR;
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  }
+  size(); window.addEventListener('resize', size);
+  const cx = () => W / 2, cy = () => H / 2;
+  function spawn(any){
+    const edge = (Math.random() * 4) | 0;
+    let x, y;
+    if(edge === 0){ x = Math.random() * W; y = -12; }
+    else if(edge === 1){ x = Math.random() * W; y = H + 12; }
+    else if(edge === 2){ x = -12; y = Math.random() * H; }
+    else { x = W + 12; y = Math.random() * H; }
+    const dx = cx() - x, dy = cy() - y, d = Math.hypot(dx, dy) || 1;
+    const sp = (0.5 + Math.random() * 0.9) * (any ? (0.3 + Math.random() * 0.7) : 0.12);
+    return { x:x, y:y, vx:dx / d * sp * 9, vy:dy / d * sp * 9,
+             sz:1 + Math.random() * 2.2, warm:Math.random() < 0.18 };
+  }
+  const parts = [];
+  for(let i = 0; i < 170; i++) parts.push(spawn(true));
+  const arcs = [];
+  function newArc(){
+    const a = Math.random() * Math.PI * 2, r = Math.max(W, H) * 0.72;
+    const sx = cx() + Math.cos(a) * r, sy = cy() + Math.sin(a) * r;
+    const pts = [[sx, sy]];
+    for(let i = 1; i <= 7; i++){
+      const t = i / 7;
+      pts.push([cx() + (sx - cx()) * (1 - t) + (Math.random() - 0.5) * 52,
+                cy() + (sy - cy()) * (1 - t) + (Math.random() - 0.5) * 52]);
+    }
+    arcs.push({ pts:pts, life:1, decay:0.025 + Math.random() * 0.035 });
+  }
+  const t0 = performance.now();
+  function frame(now){
+    if(done) return;
+    const t = (now - t0) / 1000;
+    const build = Math.min(1, t / 1.35); // convergence progress 0→1
+    ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H);
+    if(Math.random() < 0.3 + build * 0.65 && arcs.length < 26) newArc();
+    ctx.lineWidth = 1.6;
+    for(let i = arcs.length - 1; i >= 0; i--){
+      const a = arcs[i]; a.life -= a.decay;
+      if(a.life <= 0){ arcs.splice(i, 1); continue; }
+      ctx.strokeStyle = 'rgba(181,211,52,' + (a.life * 0.9).toFixed(3) + ')';
+      ctx.shadowColor = '#b5d334'; ctx.shadowBlur = 14 * a.life;
+      ctx.beginPath(); ctx.moveTo(a.pts[0][0], a.pts[0][1]);
+      for(let k = 1; k < a.pts.length; k++) ctx.lineTo(a.pts[k][0], a.pts[k][1]);
+      ctx.stroke();
+    }
+    ctx.shadowBlur = 0;
+    const accel = 1 + build * 2.4;
+    for(const p of parts){
+      p.x += p.vx * accel; p.y += p.vy * accel;
+      if(Math.hypot(cx() - p.x, cy() - p.y) < 24) Object.assign(p, spawn(false));
+      ctx.fillStyle = p.warm ? 'rgba(235,255,190,' + (0.35 + build * 0.6).toFixed(3) + ')'
+                             : 'rgba(181,211,52,' + (0.35 + build * 0.6).toFixed(3) + ')';
+      ctx.beginPath(); ctx.arc(p.x, p.y, p.sz, 0, 7); ctx.fill();
+    }
+    const gr = ctx.createRadialGradient(cx(), cy(), 0, cx(), cy(), Math.max(W, H) * 0.3 * build + 6);
+    gr.addColorStop(0, 'rgba(181,211,52,' + (0.22 + build * 0.6).toFixed(3) + ')');
+    gr.addColorStop(1, 'rgba(181,211,52,0)');
+    ctx.fillStyle = gr; ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = 'rgba(0,0,0,0.16)';
+    for(let y = 0; y < H; y += 4) ctx.fillRect(0, y, W, 1);
+    if(t < cfg.flashAt){
+      ctx.fillStyle = 'rgba(181,211,52,0.75)';
+      ctx.font = '12px ui-monospace,Menlo,monospace'; ctx.textAlign = 'center';
+      ctx.fillText('ESTABLISHING UPLINK …', cx(), H - 44);
+      requestAnimationFrame(frame);
+    } else {
+      ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, W, H); // peak-white frame
+      finish(); // fade starts exactly here
+    }
+  }
+  requestAnimationFrame(frame);
+  setTimeout(finish, 8000); // safety: never trap the user
+})();
 
 /* ---------- init ---------- */
 window.addEventListener('load', () => {
