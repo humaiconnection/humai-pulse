@@ -141,8 +141,11 @@
       </div>
     </div>
     <div class="card" style="margin-bottom:14px">
-      <h2>🔋 Muse credits</h2>
-      <div class="blurb">Free-plan weekly allowance. Numbers are baked in at deploy time (see CREDITS in the config hub); the countdown ticks live with the 60s data cycle.</div>
+      <div style="display:flex; align-items:center; justify-content:space-between; gap:10px">
+        <h2 style="margin:0">🔋 Muse credits</h2>
+        <button class="btn ghost" id="credits-refresh" style="padding:7px 14px; font-size:12px">↻ Refresh</button>
+      </div>
+      <div class="blurb">Free-plan weekly allowance. Live numbers publish to <b>credits.json</b> on a schedule — the button pulls the latest right now, and the 60s data cycle picks them up automatically. Falls back to baked-in values if the fetch fails.</div>
       <div id="credits-body"></div>
     </div>
     <div class="locknote">
@@ -319,9 +322,10 @@ const AIDMIN = {
 };
 
 /* ---------- Muse credits (free-plan weekly allowance) ----------
-   Baked in at deploy time: re-run `subscription-status status` and update
-   used / resetISO below, then redeploy. The countdown re-renders every 60s
-   with the data cycle; the % itself only changes when this is updated. */
+   Live numbers come from credits.json (a scheduled job runs
+   `subscription-status status` and publishes it). The Refresh button and
+   the 60s data cycle pull it; CREDITS below is the fallback when the
+   fetch fails. */
 const CREDITS = { plan:'free', used:63, resetISO:'2026-10-09T23:16:00-05:00' };
 const api = (path, token) => fetch('https://api.github.com' + path, {
   headers: Object.assign({ 'Accept':'application/vnd.github+json' },
@@ -436,10 +440,29 @@ function crPace(c, now){
   if(burn <= 0) return '—';
   return '~' + crDur((l / burn) * 86400000);
 }
+let liveCredits = null, creditsStamp = 0, creditsLive = false;
+async function fetchCredits(){
+  try{
+    const r = await fetch('credits.json?v=' + Date.now(), { cache:'no-store' });
+    if(!r.ok) throw new Error('HTTP ' + r.status);
+    const j = await r.json();
+    if(typeof j.used !== 'number' || j.used < 0 || j.used > 100 || !j.resetISO || isNaN(new Date(j.resetISO).getTime()))
+      throw new Error('bad payload');
+    liveCredits = { plan: j.plan || 'free', used: Math.round(j.used), resetISO: j.resetISO };
+    creditsStamp = Date.now(); creditsLive = true;
+    return true;
+  }catch(e){ creditsLive = false; return false; }
+}
+function crAgo(ts){
+  const s = Math.max(0, Math.round((Date.now() - ts) / 1000));
+  if(s < 60) return s + 's ago';
+  const m = Math.floor(s / 60);
+  return m < 60 ? m + 'm ago' : Math.floor(m / 60) + 'h ago';
+}
 function renderCredits(){
   const host = $('credits-body');
   if(!host) return;
-  const c = CREDITS, u = c.used, l = 100 - u, low = l <= 10;
+  const c = liveCredits || CREDITS, u = c.used, l = 100 - u, low = l <= 10;
   const now = Date.now(), resetMs = new Date(c.resetISO).getTime();
   host.innerHTML =
     (low ? '<div class="cr-warn"><div class="t">Low credits — under 10% left</div><div>Only ' + l + '% of your free weekly credits remain. Heavy work may stall until the reset — consider lighter tasks.</div></div>' : '')
@@ -451,7 +474,9 @@ function renderCredits(){
     + '<div class="cr-stat"><div class="v">' + crDur(resetMs - now) + '</div><div class="l">until weekly reset</div></div>'
     + '<div class="cr-stat"><div class="v">' + crPace(c, now) + '</div><div class="l">to zero at current pace</div></div>'
     + '</div>'
-    + '<div class="cr-meta">Countdown ticks with the 60s data cycle · credit % baked in at deploy</div>';
+    + '<div class="cr-meta">' + (creditsLive
+        ? 'Live from credits.json · updated ' + crAgo(creditsStamp) + ' · auto-refreshes with the 60s data cycle'
+        : 'Showing baked-in values (live fetch failed) · countdown still ticks') + '</div>';
 }
 
 /* ---------- probe the public site ---------- */
@@ -470,6 +495,14 @@ $('probe-btn').onclick = async () => {
     val.textContent = '✕'; sub.textContent = 'probe failed: ' + e.message;
   }
   btn.classList.remove('busy'); btn.textContent = 'Run probe';
+};
+
+/* ---------- credits refresh button ---------- */
+$('credits-refresh').onclick = async () => {
+  const btn = $('credits-refresh');
+  btn.classList.add('busy'); const old = btn.textContent; btn.textContent = '⟳…';
+  await fetchCredits(); renderCredits();
+  btn.classList.remove('busy'); btn.textContent = old;
 };
 
 /* ---------- repo vitals (auto-built from AIDMIN.VITALS) ---------- */
@@ -661,6 +694,7 @@ async function refreshCycle(){
     await loadVitals();
     if(getToken()) await loadTraffic(); // traffic = the "logged in" gate for now
     renderMeters();
+    await fetchCredits();
     renderCredits();
     playLogoGif(); // replay the logo animation each cycle
   }catch(e){ /* panels already show their own errors; keep old data */ }
@@ -798,7 +832,7 @@ function playLogoGif(){
 
 /* ---------- init ---------- */
 window.addEventListener('load', () => {
-  setTimeout(() => { renderMeters(); renderCredits(); }, 60); // let loadEventEnd settle
+  setTimeout(async () => { await fetchCredits(); renderMeters(); renderCredits(); }, 60); // let loadEventEnd settle
   setTimeout(playLogoGif, 2300); // first play, right after the intro fades
 });
 tokenStatus();
