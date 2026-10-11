@@ -236,8 +236,8 @@ function renderSegment(seg,n){
   const rumL =fogColor(light?pal.rumbleL:pal.rumbleR,f);
   const lane =f<0.85?pal.lane:null;
   const p1=seg.p1.screen,p2=seg.p2.screen;
-  // grass
-  ctx.fillStyle=grass; ctx.fillRect(0,p2.y,W,p1.y-p2.y);
+  // grass (overdraw margin for screen shake)
+  ctx.fillStyle=grass; ctx.fillRect(-40,p2.y,W+80,p1.y-p2.y+1);
   // rumble strips
   const r1=p1.w/7,r2=p2.w/7;
   poly(p1.x-p1.w-r1,p1.y, p1.x-p1.w,p1.y, p2.x-p2.w,p2.y, p2.x-p2.w-r2,p2.y, rumL);
@@ -267,10 +267,11 @@ let skyX=0;
 function renderBackground(playerSegment,playerY){
   const img=BG.dusk;
   const horizon=H*0.42-(playerY*0.004);
-  ctx.fillStyle='#1a1030'; ctx.fillRect(0,0,W,horizon+2);
+  // full-canvas base fill every frame (with shake overdraw margin) — no residue possible
+  ctx.fillStyle='#1a1030'; ctx.fillRect(-40,-40,W+80,H+80);
   if(img){
-    const dw=W*1.4, dh=dw*img.height/img.width;
-    ctx.drawImage(img,skyX,horizon-dh+2,dw,dh);
+    const dw=W*1.4+80, dh=dw*img.height/img.width;
+    ctx.drawImage(img,skyX-40,horizon-dh+2-20,dw,dh);
   }else{
     const g=ctx.createLinearGradient(0,0,0,horizon);
     g.addColorStop(0,'#2a1a4e'); g.addColorStop(1,'#c9522e');
