@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>humAi Pulse — What's Happening</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+  :root{
+    --bg:#070b06; --panel:#0e140c; --panel2:#111a0e; --line:#22331c;
+    --txt:#e8f0e2; --mut:#9db08f; --acc:#b5d334; --acc-dim:#7fa021;
+    --acc-glow:rgba(181,211,52,.16);
+  }
+  *{box-sizing:border-box; margin:0; padding:0}
+  body{background:var(--bg); color:var(--txt); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; padding:24px 16px 60px;}
+  .wrap{max-width:1060px; margin:0 auto}
+  header{display:flex; align-items:center; gap:14px; margin-bottom:6px}
+  .logo{width:46px; height:46px; border-radius:12px; background:linear-gradient(135deg,var(--acc),#5c7a12); display:flex; align-items:center; justify-content:center; font-size:24px; font-weight:900; color:#0a0f06; position:relative; overflow:hidden; flex:none}
+  .logo img{position:absolute; inset:0; width:100%; height:100%; object-fit:cover; display:none}
+  h1{font-size:26px; letter-spacing:.5px}
+  h1 span{color:var(--acc)}
+  .sub{color:var(--mut); font-size:13px; margin:2px 0 18px}
+  .sub .live{display:inline-block; width:8px; height:8px; border-radius:50%; background:var(--acc); margin-right:6px; animation:pulse 1.6s infinite}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+  /* tabs */
+  .tabs{position:sticky; top:0; z-index:5; display:flex; gap:8px; flex-wrap:wrap; padding:10px 0; margin-bottom:16px; background:var(--bg)}
+  .tab{padding:10px 14px; border-radius:10px; border:1px solid var(--line); background:var(--panel); color:var(--mut); font-size:13px; font-weight:700; cursor:pointer}
+  .tab:hover{border-color:var(--acc); color:var(--txt)}
+  .tab.active{background:var(--acc); border-color:var(--acc); color:#0a0f06}
+  .card{background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:16px; display:flex; flex-direction:column}
+  .card h2{font-size:15px; margin-bottom:4px; display:flex; align-items:center; gap:8px}
+  .card h2 .ic{font-size:18px}
+  .card .blurb{font-size:12px; color:var(--mut); margin-bottom:10px}
+  .item{display:block; padding:9px 10px; border-radius:9px; text-decoration:none; color:var(--txt); border:1px solid transparent}
+  .item:hover{background:var(--acc-glow); border-color:var(--line)}
+  .item .t{font-size:13.5px; font-weight:600; line-height:1.35}
+  .item .m{font-size:12px; color:var(--mut); margin-top:3px}
+  .item .m b{color:var(--acc); font-weight:600}
+  .rank{display:inline-flex; align-items:center; justify-content:center; width:22px; height:22px; border-radius:7px; background:var(--panel2); border:1px solid var(--line); color:var(--acc); font-size:12px; font-weight:800; margin-right:8px; vertical-align:1px}
+  .foot{margin-top:10px; font-size:12px}
+  .foot a{color:var(--acc); text-decoration:none; font-weight:600}
+  /* weather */
+  .wx-now{display:flex; align-items:baseline; gap:10px; margin:4px 0 8px}
+  .wx-temp{font-size:38px; font-weight:800; color:var(--acc)}
+  .wx-cond{font-size:14px; color:var(--txt)}
+  .wx-rows{font-size:12.5px; color:var(--mut); line-height:1.7}
+  .wx-rows b{color:var(--txt); font-weight:600}
+  .ziprow{display:flex; gap:8px; margin-top:12px}
+  .zipin{flex:1; min-width:0; padding:10px 12px; border-radius:10px; font-size:14px; border:2px solid var(--line); background:var(--panel2); color:var(--txt)}
+  .zipin:focus{outline:none; border-color:var(--acc)}
+  .zipbtn{padding:10px 18px; border-radius:10px; cursor:pointer; font-size:13px; font-weight:800; border:2px solid var(--acc); background:var(--acc); color:#0a0f06; white-space:nowrap}
+  .zipbtn:active{transform:translateY(1px)}
+  .zipbtn.busy{opacity:.55; cursor:default}
+  .zipmsg{font-size:12px; margin-top:8px; min-height:16px; color:var(--mut)}
+  .zipmsg.err{color:#e88}
+  .radar-label{font-size:11px; color:var(--mut); text-transform:uppercase; letter-spacing:1px; margin-top:14px}
+  #radar{height:260px; border-radius:12px; margin-top:8px; border:1px solid var(--line); background:#0a0f06; position:relative; z-index:0}
+  .leaflet-container{font-family:inherit; background:#0a0f06}
+  footer{margin-top:26px; text-align:center; color:var(--mut); font-size:12px; line-height:1.7}
+  footer a{color:var(--acc); text-decoration:none}
+  /* intro teleport overlay */
+  #intro{position:fixed; inset:0; z-index:60; background:#000; cursor:pointer}
+  #intro.fade{opacity:0; pointer-events:none}
+  #intro-cv{position:absolute; inset:0; width:100%; height:100%; display:block}
+  #intro-skip{position:absolute; bottom:16px; right:18px; font-size:11px; letter-spacing:1px; color:var(--mut); text-transform:uppercase; opacity:.7}
+</style>
+</head>
+<body>
+<div id="intro"><span id="intro-skip">tap to skip</span></div>
+<div class="wrap">
+  <header>
+    <div class="logo">h<img id="pulse-logo-gif" alt="humAi"></div>
+    <div><h1>humAi <span>Pulse</span></h1></div>
+  </header>
+  <div class="sub"><span class="live"></span><span id="dateline"></span> &middot; curated for the curious &middot; weather updates live</div>
+  <div class="tabs" id="tabs"></div>
+  <div id="content"></div>
+  <footer>
+    Built by humAi &middot; Data baked in at build time except weather, which is live via Open-Meteo.<br>
+    <a href="https://x.com/humAi_cOnX">@humAi_cOnX</a> on X
+  </footer>
+</div>
+<script>
+/* ============================================================================
+   humAi Pulse — section config.
+   ----------------------------------------------------------------------------
+   TO ADD A NEW SECTION LATER: copy any one of the objects below, paste it
+   into the SECTIONS array, and change id / title / icon / blurb / items.
+   A tab button for it appears automatically — no other code to touch.
+   Each item: { t: "headline", u: "https://link", m: "small meta line (HTML ok)" }
+   ============================================================================ */
+var SECTIONS = [
+  { id: "x", title: "Top X Posts", icon: "𝕏", blurb: "The loudest posts on X right now",
+    items: [
+      { t: "Tesla's Robotaxi hits 300+ Cybercabs in Austin — '8x increase in 30 days'", u: "https://x.com/robotaxi/status/2108981691436224816", m: "@robotaxi &middot; Oct 10 &middot; amplified by Tesla; Elluswamy: 'Dallas soon'" },
+      { t: "Tesla quote-posts gold Cybercabs cruising Texas at sunset — 'Floodgates are opening'", u: "https://twitter.com/omg_fsd/status/2108396755041816928", m: "@omg_fsd photo boosted by @Tesla &middot; Oct 8–9" },
+      { t: "AI-generated 'bar talk between favourite characters' clip makes the rounds", u: "https://x.com/WGATMEANRADIO/status/2108736806388646155", m: "@WGATMEANRADIO &middot; Oct 10 &middot; AI-video meme circuit" } ],
+    foot: null },
+  { id: "yt", title: "Top YouTube Videos", icon: "▶", blurb: "Worth your watch time this week",
+    items: [
+      { t: "Anuel AA - Vuelve (Video Oficial)", u: "https://www.youtube.com/watch?v=_I4LqivZDBs", m: "Anuel AA &middot; Oct 9 &middot; #1 US trending" },
+      { t: "The Exorcist: Martyrs | Official Trailer", u: "https://www.youtube.com/watch?v=iIEYfH-jg1Y", m: "Universal Pictures &middot; Oct 9 &middot; #2 US trending" },
+      { t: "Gunna - pop it [Official Video]", u: "https://www.youtube.com/watch?v=48rRv5ISfrg", m: "Gunna &middot; Oct 9 &middot; US trending top 5" } ],
+    foot: null },
+  { id: "ainews", title: "Top AI News", icon: "🤖", blurb: "The AI stories that matter today",
+    items: [
+      { t: "OpenAI, Anthropic execs privately war-gaming 'the day after' a catastrophic AI event", u: "https://threatbeat.com/government-and-industry/ai-companies-plot-the-day-after/", m: "Oct 9 &middot; via Threat Beat (Axios scoop)" },
+      { t: "Anthropic bans 'sustained and needless' cruelty toward Claude, effective Nov 12", u: "https://www.theregister.com/ai-and-ml/2026/10/09/anthropic-asks-users-to-stop-being-mean-to-claude/5302218", m: "Oct 9 &middot; via The Register" },
+      { t: "OpenAI Daybreak agents cut Sophos threat investigations from 38 minutes to 89 seconds", u: "https://www.unite.ai/sophos-says-daybreak-ai-agents-cut-average-case-response-to-89-seconds/", m: "Oct 9 &middot; via Unite.AI" },
+      { t: "UK ICO secures binding AI data-protection commitments from 10 model makers", u: "https://www.ghacks.net/2026/10/09/uk-ico-secures-data-protection-commitments-from-openai-google-microsoft-and-seven-other-ai-developers/", m: "Oct 9 &middot; via gHacks (xAI excluded)" } ],
+    foot: null },
+  { id: "world", title: "Top World News", icon: "🌍", blurb: "The planet, at a glance",
+    items: [
+      { t: "Hurricane Isaias makes landfall near Destin as Category 2 — 4+ dead, 900k+ outages", u: "https://www.usatoday.com/story/news/weather/2026/10/10/hurricane-isaias-live-updates-forecast--live/92172297007/", m: "USA Today &middot; Oct 10" },
+      { t: "Navi Pillay wins 2026 Nobel Peace Prize; Trump calls the prize 'forever discredited'", u: "https://www.usatoday.com/story/news/politics/2026/10/09/donald-trump-nobel-peace-prize-loss/92145019007/", m: "USA Today &middot; Oct 9" },
+      { t: "Trump announces deal to buy Russian diesel; Zelenskyy calls it 'an investment in war'", u: "https://nypost.com/2026/10/09/us-news/president-trump-announces-deal-with-putin-to-deliver-russian-diesel-fuel-to-the-us/", m: "New York Post &middot; Oct 9" },
+      { t: "FBI foils ISIS-inspired plot targeting the Mall of America", u: "https://wjno.iheart.com/content/2026-10-07-teen-accused-of-planning-terror-attack-at-mall-of-america/", m: "WJNO/iHeart &middot; Oct 7" } ],
+    foot: null },
+  { id: "songs", title: "Song Charts", icon: "🎵", blurb: "Billboard Hot 100 — week of Oct 10, 2026",
+    items: [
+      { t: "<span class='rank'>1</span>Taylor Swift — “Patient Zero”", u: "https://www.billboard.com/charts/hot-100/", m: "New #1 &middot; her 16th chart-topper" },
+      { t: "<span class='rank'>2</span>Ella Langley — “Choosin' Texas”", u: "https://www.billboard.com/charts/hot-100/", m: "Down from #1 after a historic 24-week run" },
+      { t: "<span class='rank'>3</span>Taylor Swift — “Cleveland!”", u: "https://www.billboard.com/charts/hot-100/", m: "Encore deluxe takes 4 of the top 5" },
+      { t: "<span class='rank'>4</span>Taylor Swift — “Babylon”", u: "https://www.billboard.com/charts/hot-100/", m: "" },
+      { t: "<span class='rank'>5</span>Taylor Swift — “Pink Clouding”", u: "https://www.billboard.com/charts/hot-100/", m: "" } ],
+    foot: "<a href='https://www.billboard.com/charts/hot-100/'>Full Billboard Hot 100 →</a>" },
+  { id: "movies", title: "Movie Charts", icon: "🎬", blurb: "Domestic box office — weekend of Oct 2–4, 2026",
+    items: [
+      { t: "<span class='rank'>1</span>Verity — $32.6M", u: "https://editorial.rottentomatoes.com/article/weekend-box-office-verity-week-1/", m: "Amazon MGM &middot; Colleen Hoover adaptation" },
+      { t: "<span class='rank'>2</span>Resident Evil — $12.5M", u: "https://editorial.rottentomatoes.com/article/weekend-box-office-verity-week-1/", m: "$124.8M total" },
+      { t: "<span class='rank'>3</span>Heart of the Beast — $11.0M", u: "https://editorial.rottentomatoes.com/article/weekend-box-office-verity-week-1/", m: "Paramount" },
+      { t: "<span class='rank'>4</span>Primetime — $8.0M", u: "https://editorial.rottentomatoes.com/article/weekend-box-office-verity-week-1/", m: "A24" },
+      { t: "<span class='rank'>5</span>Digger — $8.0M", u: "https://editorial.rottentomatoes.com/article/weekend-box-office-verity-week-1/", m: "Warner Bros &middot; Tom Cruise stumbles" } ],
+    foot: "<a href='https://www.boxofficemojo.com/'>Box Office Mojo →</a>" }
+];
+
+/* No fixed default location: on each load a random US ZIP is picked so no
+   single ZIP (like the owner's) is ever advertised. Live Open-Meteo data
+   replaces this placeholder within a second or two of load. */
+var DEFAULT_ZIPS = ["90210","10001","60601","30301","75201","94102","98101","80201","02101","33101"];
+var WX = { zip:"", label:"Picking a location…", temp:"--", cond:"loading…", humidity:"--", wind:"--", low:"--", high:"--", next:"--", lat:null, lon:null };
+
+var WMO = {0:"Clear sky",1:"Mostly clear",2:"Partly cloudy",3:"Overcast",45:"Foggy",48:"Icy fog",51:"Light drizzle",53:"Drizzle",55:"Heavy drizzle",56:"Freezing drizzle",57:"Freezing drizzle",61:"Light rain",63:"Rain",65:"Heavy rain",66:"Freezing rain",67:"Freezing rain",71:"Light snow",73:"Snow",75:"Heavy snow",77:"Snow grains",80:"Light showers",81:"Showers",82:"Violent showers",85:"Snow showers",86:"Snow showers",95:"Thunderstorm",96:"Storm + hail",99:"Storm + hail"};
+function wmo(c){ return WMO[c] || "—"; }
+function compass(d){ var dirs=["N","NNE","NE","ENE","E","ESE","SE","SSE","S","SSW","SW","WSW","W","WNW","NW","NNW"]; return dirs[Math.round(d/22.5)%16]; }
+
+/* Intro teleport: fullscreen neon-green canvas effect on every load.
+   flashAt = seconds until the peak-white frame, where the fade begins.
+   Tweak colors/timing here; the engine is at the bottom of the script. */
+var INTRO = { flashAt: 1.65, fadeMs: 450 };
+
+/* Logo GIF: plays once on first load, replays every 60s. The gif lives at
+   assets/labz-emblem.gif in the repo. Falls back to the plain logo box. */
+var LOGO = { src: 'assets/labz-emblem.gif', replaySeconds: 60 };
+
+/* Tabs: one button per section plus Weather. The active tab follows the URL
+   hash (e.g. .../humai-pulse/#ainews), so tabs are linkable. */
+function currentTab(){
+  var h = (location.hash || "").replace("#","");
+  if (h === "wx") return "wx";
+  for (var i = 0; i < SECTIONS.length; i++) if (SECTIONS[i].id === h) return h;
+  return "x";
+}
+
+function sectionCard(s){
+  return '<div class="card"><h2><span class="ic">'+s.icon+'</span>'+s.title+'</h2>'
+    + '<div class="blurb">'+s.blurb+'</div>'
+    + s.items.map(function(it){
+        return '<a class="item" href="'+it.u+'" target="_blank" rel="noopener"><div class="t">'+it.t+'</div>'
+          + (it.m ? '<div class="m">'+it.m+'</div>' : '') + '</a>';
+      }).join('')
+    + (s.foot ? '<div class="foot">'+s.foot+'</div>' : '')
+    + '</div>';
+}
+
+function weatherCard(){
+  return '<div class="card"><h2><span class="ic">⛅</span>Weather</h2>'
+    + '<div class="blurb">'+WX.label+' '+WX.zip+' — live via Open-Meteo</div>'
+    + '<div class="wx-now"><div class="wx-temp">'+WX.temp+'</div><div class="wx-cond">'+WX.cond+'</div></div>'
+    + '<div class="wx-rows">'
+    + '<div>Humidity <b>'+WX.humidity+'</b> &middot; Wind <b>'+WX.wind+'</b></div>'
+    + '<div>Low tonight <b>'+WX.low+'</b> &middot; Tomorrow <b>'+WX.next+'</b>: high <b>'+WX.high+'</b></div>'
+    + '</div>'
+    + '<div class="ziprow"><input class="zipin" id="zipin" inputmode="numeric" placeholder="Enter ZIP code" value="">'
+    + '<button class="zipbtn" id="zipbtn">Update</button></div>'
+    + '<div class="zipmsg" id="zipmsg"></div>'
+    + '<div class="radar-label">Live radar · RainViewer</div><div id="radar"></div></div>';
+}
+
+/* Fetch live weather for a ZIP via Open-Meteo. onDone(err) runs when finished. */
+function loadWeather(zip, onDone){
+  fetch('https://geocoding-api.open-meteo.com/v1/search?name='+encodeURIComponent(zip)+'&count=1&language=en&format=json')
+    .then(function(r){ if(!r.ok) throw new Error('net'); return r.json(); })
+    .then(function(gj){
+      if (!gj.results || !gj.results.length) throw new Error('notfound');
+      var p = gj.results[0];
+      var label = p.name + (p.admin1 ? ', '+p.admin1 : '');
+      var furl = 'https://api.open-meteo.com/v1/forecast?latitude='+p.latitude+'&longitude='+p.longitude
+        + '&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m,wind_direction_10m'
+        + '&daily=temperature_2m_max,temperature_2m_min,weather_code'
+        + '&temperature_unit=fahrenheit&wind_speed_unit=mph&timezone=auto&forecast_days=2';
+      return fetch(furl).then(function(r){ if(!r.ok) throw new Error('net'); return r.json(); })
+        .then(function(f){
+          var c = f.current, dl = f.daily;
+          WX = { zip: zip, label: label, lat: p.latitude, lon: p.longitude,
+            temp: Math.round(c.temperature_2m)+'°F', cond: wmo(c.weather_code),
+            humidity: Math.round(c.relative_humidity_2m)+'%', wind: compass(c.wind_direction_10m)+' ~'+Math.round(c.wind_speed_10m)+' mph',
+            low: Math.round(dl.temperature_2m_min[0])+'°F', high: Math.round(dl.temperature_2m_max[1])+'°F',
+            next: new Date(dl.time[1]+'T12:00:00').toLocaleDateString('en-US',{weekday:'long', month:'short', day:'numeric'}) };
+          if (onDone) onDone(null);
+        });
+    })
+    .catch(function(e){ if (onDone) onDone(e); });
+}
+
+function bindWeather(){
+  var btn = document.getElementById('zipbtn'), inp = document.getElementById('zipin'), msg = document.getElementById('zipmsg');
+  if (!btn) return;
+  function go(){
+    var zip = inp.value.trim();
+    if (!/^\d{5}$/.test(zip)){ msg.textContent = 'Enter a 5-digit US ZIP code.'; msg.classList.add('err'); return; }
+    btn.disabled = true; btn.classList.add('busy'); btn.textContent = 'Updating…';
+    msg.classList.remove('err'); msg.textContent = 'Looking up ' + zip + '…';
+    loadWeather(zip, function(e){
+      if (e){
+        msg.textContent = (e && e.message === 'notfound') ? 'ZIP code not found — try another.' : 'Couldn’t reach the weather service. Try again.';
+        msg.classList.add('err');
+        btn.disabled = false; btn.classList.remove('busy'); btn.textContent = 'Update';
+      } else {
+        render();
+      }
+    });
+  }
+  btn.onclick = go;
+  inp.addEventListener('keydown', function(e){ if (e.key === 'Enter') go(); });
+}
+
+function render(){
+  var active = currentTab();
+  var tabs = SECTIONS.map(function(s){
+    return '<button class="tab'+(s.id===active?' active':'')+'" data-tab="'+s.id+'">'+s.icon+' '+s.title+'</button>';
+  }).join('')
+    + '<button class="tab'+(active==='wx'?' active':'')+'" data-tab="wx">⛅ Weather</button>'
+    + '<a class="tab" href="movies.html" style="text-decoration:none">🎬 Humaitainment</a>';
+  document.getElementById('tabs').innerHTML = tabs;
+
+  var nodes = document.querySelectorAll('#tabs .tab');
+  for (var i = 0; i < nodes.length; i++){
+    nodes[i].onclick = function(){ location.hash = this.getAttribute('data-tab'); };
+  }
+
+  var content = document.getElementById('content');
+  if (active === 'wx'){
+    if(window._radarMap){ try{ window._radarMap.remove(); }catch(e){} window._radarMap = null; }
+    content.innerHTML = weatherCard();
+    bindWeather();
+    initRadar();
+  } else {
+    for (var j = 0; j < SECTIONS.length; j++){
+      if (SECTIONS[j].id === active){ content.innerHTML = sectionCard(SECTIONS[j]); break; }
+    }
+  }
+  window.scrollTo(0, 0);
+
+  var d = new Date();
+  document.getElementById('dateline').textContent =
+    d.toLocaleDateString('en-US',{weekday:'long', month:'long', day:'numeric', year:'numeric'});
+}
+
+/* Live radar: RainViewer tiles (free, no key) on a Leaflet map, centered on
+   the displayed location. Recenters whenever the ZIP changes. */
+function initRadar(){
+  var el = document.getElementById('radar');
+  if(!el || typeof L === 'undefined' || WX.lat == null || WX.lon == null) return;
+  var map = L.map('radar', { zoomControl: true }).setView([WX.lat, WX.lon], 7);
+  window._radarMap = map;
+  L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}', { maxZoom: 12, attribution: 'Esri' }).addTo(map);
+  fetch('https://api.rainviewer.com/public/weather-maps.json').then(function(r){ return r.json(); }).then(function(j){
+    var frames = (j.radar && j.radar.past) || [];
+    if(!frames.length) return;
+    var last = frames[frames.length - 1];
+    L.tileLayer('https://tilecache.rainviewer.com' + last.path + '/256/{z}/{x}/{y}/2/1_1.png', { opacity: 0.7, zIndex: 10 }).addTo(map);
+  }).catch(function(){ /* radar tiles optional; base map still shows */ });
+  setTimeout(function(){ map.invalidateSize(); }, 350);
+}
+
+window.addEventListener('hashchange', render);
+render();
+/* Random default location on every load — live data fills in right away,
+   and the Weather tab re-renders if it's the one being viewed. */
+(function(){
+  var rz = DEFAULT_ZIPS[Math.floor(Math.random()*DEFAULT_ZIPS.length)];
+  loadWeather(rz, function(){ if (currentTab() === 'wx') render(); });
+})();
+
+/* ---------- intro teleport (fullscreen, fade starts at peak white) ---------- */
+(function intro(){
+  var cfg = window.INTRO || { flashAt: 1.65, fadeMs: 450 };
+  var ov = document.getElementById('intro');
+  if(!ov) return;
+  ov.style.transition = 'opacity ' + cfg.fadeMs + 'ms ease';
+  var done = false;
+  function finish(){
+    if(done) return; done = true;
+    ov.classList.add('fade');
+    setTimeout(function(){ ov.remove(); }, cfg.fadeMs + 60);
+  }
+  ov.addEventListener('click', finish);
+  var cv = document.createElement('canvas');
+  cv.id = 'intro-cv';
+  ov.insertBefore(cv, ov.firstChild);
+  var ctx = cv.getContext('2d');
+  var W = 0, H = 0;
+  function size(){
+    var DPR = Math.min(2, window.devicePixelRatio || 1);
+    W = window.innerWidth; H = window.innerHeight;
+    cv.width = W * DPR; cv.height = H * DPR;
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  }
+  size(); window.addEventListener('resize', size);
+  function cx(){ return W / 2; } function cy(){ return H / 2; }
+  function spawn(any){
+    var edge = (Math.random() * 4) | 0, x, y;
+    if(edge === 0){ x = Math.random() * W; y = -12; }
+    else if(edge === 1){ x = Math.random() * W; y = H + 12; }
+    else if(edge === 2){ x = -12; y = Math.random() * H; }
+    else { x = W + 12; y = Math.random() * H; }
+    var dx = cx() - x, dy = cy() - y, d = Math.hypot(dx, dy) || 1;
+    var sp = (0.5 + Math.random() * 0.9) * (any ? (0.3 + Math.random() * 0.7) : 0.12);
+    return { x:x, y:y, vx:dx / d * sp * 9, vy:dy / d * sp * 9,
+             sz:1 + Math.random() * 2.2, warm:Math.random() < 0.18 };
+  }
+  var parts = [], i;
+  for(i = 0; i < 170; i++) parts.push(spawn(true));
+  var arcs = [];
+  function newArc(){
+    var a = Math.random() * Math.PI * 2, r = Math.max(W, H) * 0.72;
+    var sx = cx() + Math.cos(a) * r, sy = cy() + Math.sin(a) * r;
+    var pts = [[sx, sy]], k, t;
+    for(k = 1; k <= 7; k++){
+      t = k / 7;
+      pts.push([cx() + (sx - cx()) * (1 - t) + (Math.random() - 0.5) * 52,
+                cy() + (sy - cy()) * (1 - t) + (Math.random() - 0.5) * 52]);
+    }
+    arcs.push({ pts:pts, life:1, decay:0.025 + Math.random() * 0.035 });
+  }
+  var t0 = performance.now();
+  function frame(now){
+    if(done) return;
+    var t = Math.max(0, (now - t0) / 1000); // rAF timestamps can predate t0 on cold loads; never go negative
+    var build = Math.min(1, t / 1.35), j, k, p, a;
+    ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H);
+    if(Math.random() < 0.3 + build * 0.65 && arcs.length < 26) newArc();
+    ctx.lineWidth = 1.6;
+    for(j = arcs.length - 1; j >= 0; j--){
+      a = arcs[j]; a.life -= a.decay;
+      if(a.life <= 0){ arcs.splice(j, 1); continue; }
+      ctx.strokeStyle = 'rgba(181,211,52,' + (a.life * 0.9).toFixed(3) + ')';
+      ctx.shadowColor = '#b5d334'; ctx.shadowBlur = 14 * a.life;
+      ctx.beginPath(); ctx.moveTo(a.pts[0][0], a.pts[0][1]);
+      for(k = 1; k < a.pts.length; k++) ctx.lineTo(a.pts[k][0], a.pts[k][1]);
+      ctx.stroke();
+    }
+    ctx.shadowBlur = 0;
+    var accel = 1 + build * 2.4;
+    for(j = 0; j < parts.length; j++){
+      p = parts[j];
+      p.x += p.vx * accel; p.y += p.vy * accel;
+      if(Math.hypot(cx() - p.x, cy() - p.y) < 24){ p = spawn(false); parts[j] = p; }
+      ctx.fillStyle = p.warm ? 'rgba(235,255,190,' + (0.35 + build * 0.6).toFixed(3) + ')'
+                             : 'rgba(181,211,52,' + (0.35 + build * 0.6).toFixed(3) + ')';
+      ctx.beginPath(); ctx.arc(p.x, p.y, p.sz, 0, 7); ctx.fill();
+    }
+    var gr = ctx.createRadialGradient(cx(), cy(), 0, cx(), cy(), Math.max(W, H) * 0.3 * build + 6);
+    gr.addColorStop(0, 'rgba(181,211,52,' + (0.22 + build * 0.6).toFixed(3) + ')');
+    gr.addColorStop(1, 'rgba(181,211,52,0)');
+    ctx.fillStyle = gr; ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = 'rgba(0,0,0,0.16)';
+    for(var y = 0; y < H; y += 4) ctx.fillRect(0, y, W, 1);
+    if(t < cfg.flashAt){
+      ctx.fillStyle = 'rgba(181,211,52,0.75)';
+      ctx.font = '12px ui-monospace,Menlo,monospace'; ctx.textAlign = 'center';
+      ctx.fillText('TUNING THE PULSE …', cx(), H - 44);
+      requestAnimationFrame(frame);
+    } else {
+      ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, W, H); // peak-white frame
+      finish(); // fade starts exactly here
+    }
+  }
+  requestAnimationFrame(frame);
+  setTimeout(finish, 8000); // safety: never trap the user
+})();
+
+/* ---------- logo GIF: once on load, replay every 60s ---------- */
+function playLogoGif(){
+  var img = document.getElementById('pulse-logo-gif');
+  if(!img) return;
+  var probe = new Image();
+  probe.onload = function(){ img.style.display = 'block'; img.src = probe.src; };
+  probe.onerror = function(){ if(img.parentNode) img.remove(); };
+  probe.src = LOGO.src + '?t=' + Date.now(); // cache-bust so the single-play gif restarts
+}
+window.addEventListener('load', function(){ setTimeout(playLogoGif, 2300); }); // first play, post-intro
+setInterval(function(){ if(!document.hidden) playLogoGif(); }, LOGO.replaySeconds * 1000);
+</script>
+</body>
+</html>
