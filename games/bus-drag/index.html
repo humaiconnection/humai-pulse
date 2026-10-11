@@ -503,6 +503,19 @@ function drawWheel(x,y,r,rot){
     ctx.lineTo(Math.cos(i*1.256)*r*0.5, Math.sin(i*1.256)*r*0.5); ctx.stroke(); }
   ctx.restore();
 }
+function drawSportWheel(x,y,r,rot){
+  // high-contrast wheel for sprite bodies (their arches are dark voids)
+  ctx.save(); ctx.translate(x,y);
+  ctx.fillStyle="#2b2b2b"; ctx.beginPath(); ctx.arc(0,0,r,0,7); ctx.fill();
+  ctx.lineWidth=Math.max(1.5,r*0.09); ctx.strokeStyle="#8a8f98"; ctx.stroke();
+  ctx.save(); ctx.rotate(rot);
+  ctx.fillStyle="#ccd2da"; ctx.beginPath(); ctx.arc(0,0,r*0.62,0,7); ctx.fill();
+  ctx.fillStyle="#33383f";
+  for(let i=0;i<5;i++){ const a=i*(Math.PI*2/5);
+    ctx.beginPath(); ctx.moveTo(0,0); ctx.arc(0,0,r*0.52,a-0.16,a+0.16); ctx.closePath(); ctx.fill(); }
+  ctx.fillStyle="#141414"; ctx.beginPath(); ctx.arc(0,0,r*0.15,0,7); ctx.fill();
+  ctx.restore(); ctx.restore();
+}
 function drawVehicle(v, baseX, laneY, sc){
   const s=sc||1.35, x=baseX, y=(laneY===undefined?478:laneY), cfg=v.cfg;
   const wob = v.limiter ? Math.sin(R.t*70)*2 : 0;
@@ -517,7 +530,7 @@ function drawVehicle(v, baseX, laneY, sc){
     const dw=290*(s/1.35), dh=dw*spr.naturalHeight/spr.naturalWidth, rw=cfg.wheels[0];
     const sy=6-(rw.y*dh+rw.r*dw), rot=v.dist*2.2;
     ctx.drawImage(spr,-dw/2,sy,dw,dh);
-    cfg.wheels.forEach(wh=>drawWheel(-dw/2+wh.x*dw, sy+wh.y*dh, wh.r*dw, rot));
+    cfg.wheels.forEach(wh=>drawSportWheel(-dw/2+wh.x*dw, sy+wh.y*dh, wh.r*dw, rot));
     backX=-dw/2; smokeOff=-dw*0.22;
   } else if(cfg.kind==="van"||cfg.kind==="icecream"){
     // boxier van body
