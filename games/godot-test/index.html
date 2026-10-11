@@ -196,6 +196,16 @@ const engine = new Engine(GODOT_CONFIG);
 			const missingMsg = 'Error\nThe following features required to run Godot projects on the Web are missing:\n';
 			displayFailureNotice(missingMsg + missing.join('\n'));
 		}
+	} else if ('serviceWorker' in navigator && !navigator.serviceWorker.controller) {
+		// First visit: install the wasm chunk-loader, then reload so it controls this page.
+		setStatusMode('progress');
+		navigator.serviceWorker.register('index.sw.js').then(function () {
+			return navigator.serviceWorker.ready;
+		}).then(function () {
+			window.location.reload();
+		}).catch(function (err) {
+			displayFailureNotice('Service worker failed: ' + err);
+		});
 	} else {
 		setStatusMode('progress');
 		engine.startGame({
