@@ -181,18 +181,44 @@ const OPPONENTS = [
   { id:"dan", name:"Diesel Dan", emoji:"🚌", diff:2, title:"Rival bus. Rusty, but racey.",
     desc:"Dan's orange bus has seen things. Quicker than it looks.",
     color:"#c96a1e", trim:"#5e3410", glass:"#1c222b", label:"DAN", labelColor:"#2c1a08",
-    kind:"bus", reaction:[0.38,0.65], shiftSkill:0.62, accelMul:0.92, topMul:0.94, nitro:false },
+    kind:"bus", sprite:"sprite-dan-keyed.png",
+    wheels:[{x:0.244,y:0.885,r:0.058},{x:0.752,y:0.908,r:0.050}],
+    reaction:[0.38,0.65], shiftSkill:0.62, accelMul:0.92, topMul:0.94, nitro:false },
   { id:"squeaky", name:"Squeaky Clean", emoji:"🍦", diff:3, title:"Ice cream truck. Deceptively fast.",
     desc:"Sells cones by day, runs 12s quarters by night. Watch the jingle.",
     color:"#f2f2f2", trim:"#e2548b", glass:"#1c222b", label:"CONES", labelColor:"#a13a63",
-    kind:"icecream", reaction:[0.30,0.55], shiftSkill:0.75, accelMul:1.0, topMul:1.0, nitro:true },
-  { id:"marauder", name:"Midnight Marauder", emoji:"👹", diff:4, title:"The boss. Black bus, purple flames.",
-    desc:"Undefeated at the county strip. Bring your A-game and all your nitro.",
-    color:"#17181d", trim:"#7b2ff7", glass:"#0c0e13", label:"666", labelColor:"#b07bff",
-    kind:"bus", flames:true, reaction:[0.22,0.45], shiftSkill:0.9, accelMul:1.05, topMul:1.03, nitro:true },
+    kind:"icecream", sprite:"sprite-squeaky-keyed.png",
+    wheels:[{x:0.246,y:0.913,r:0.056},{x:0.744,y:0.933,r:0.048}],
+    reaction:[0.30,0.55], shiftSkill:0.75, accelMul:1.0, topMul:1.0, nitro:true },
+  { id:"ted", name:"Turbo Ted", emoji:"🛒", diff:4, title:"The boss. Grocery getter gone bad.",
+    desc:"Ted from Wally World. Stocks shelves by day, runs 11s quarters by night — in a shopping cart with a Hemi.",
+    color:"#1e5fb8", trim:"#ffd23a", glass:"#1c222b", label:"WALLY", labelColor:"#ffd23a",
+    kind:"cart", sprite:"sprite-cart-keyed.png",
+    wheels:[{x:0.164,y:0.998,r:0.050},{x:0.959,y:0.998,r:0.044}],
+    reaction:[0.22,0.45], shiftSkill:0.9, accelMul:1.05, topMul:1.03, nitro:true },
 ];
 const PLAYER_CFG = { name:"RA TOD", color:"#f7b500", trim:"#111", glass:"#141a22",
-  label:"RA TOD", labelColor:"#0d3fa3", kind:"bus", scoop:true, wing:true, flamesDecal:false, driver:true };
+  label:"RA TOD", labelColor:"#0d3fa3", kind:"bus", scoop:true, wing:true, flamesDecal:false, driver:true,
+  sprite:"sprite-bus-keyed.png", wheels:[{x:0.246,y:0.907,r:0.060},{x:0.769,y:0.938,r:0.052}] };
+
+/* ---------------- sprite art (pre-keyed PNGs) ---------------- */
+const SPR = {};
+let spritesReady = false;
+function loadSprites(){
+  const files={};
+  [PLAYER_CFG].concat(OPPONENTS).forEach(c=>{ if(c.sprite) files[c.sprite]=1; });
+  const list=Object.keys(files), btn=$("btn-start"), orig=btn.textContent;
+  if(!list.length){ spritesReady=true; return; }
+  btn.disabled=true; btn.textContent="LOADING ART…";
+  let done=0;
+  const fin=()=>{ if(++done>=list.length){ spritesReady=true; btn.disabled=false; btn.textContent=orig; } };
+  list.forEach(f=>{
+    const img=new Image();
+    img.onload=()=>{ SPR[f]=img; fin(); };
+    img.onerror=fin;
+    img.src="./assets/"+f;
+  });
+}
 
 const GEAR_TOP = [16, 28, 40, 56];      // m/s per gear
 const GEAR_ACC = [10.5, 8.2, 6.4, 4.8]; // m/s^2 base
@@ -482,7 +508,16 @@ function drawVehicle(v, baseX, laneY, sc){
   const L=150*s, Hh=64*s;
   // shadow
   ctx.fillStyle="rgba(0,0,0,.35)"; ctx.beginPath(); ctx.ellipse(0,6*s,L*0.55,10*s,0,0,7); ctx.fill();
-  if(cfg.kind==="van"||cfg.kind==="icecream"){
+  const spr=(cfg.sprite&&SPR[cfg.sprite])?SPR[cfg.sprite]:null;
+  let backX=-L/2, smokeOff=-L*0.2;
+  if(spr){
+    // AI-generated body; wheels stay live-drawn so they spin. Grounded on the rear wheel.
+    const dw=290*(s/1.35), dh=dw*spr.naturalHeight/spr.naturalWidth, rw=cfg.wheels[0];
+    const sy=6-(rw.y*dh+rw.r*dw), rot=v.dist*2.2;
+    ctx.drawImage(spr,-dw/2,sy,dw,dh);
+    cfg.wheels.forEach(wh=>drawWheel(-dw/2+wh.x*dw, sy+wh.y*dh, wh.r*dw, rot));
+    backX=-dw/2; smokeOff=-dw*0.22;
+  } else if(cfg.kind==="van"||cfg.kind==="icecream"){
     // boxier van body
     ctx.fillStyle=cfg.color; rr(-L/2,-Hh,L,Hh*0.92,10*s); ctx.fill();
     ctx.fillStyle=cfg.trim; rr(-L/2,-6*s,L,6*s,3*s); ctx.fill();
@@ -518,6 +553,7 @@ function drawVehicle(v, baseX, laneY, sc){
       for(let i=0;i<5;i++){ const fx=-L/2+8*s+i*22*s;
         ctx.beginPath(); ctx.moveTo(fx,-14*s); ctx.lineTo(fx+16*s,-4*s); ctx.lineTo(fx,-2*s); ctx.fill(); } }
   }
+  if(!spr){
   // label
   ctx.fillStyle=cfg.labelColor; ctx.font=`900 ${Math.round(15*s)}px "Trebuchet MS",sans-serif`;
   ctx.textAlign="center"; ctx.fillText(cfg.label, 0, -Hh+48*s);
@@ -525,14 +561,15 @@ function drawVehicle(v, baseX, laneY, sc){
   const wr = cfg.kind==="bus"?17*s:15*s;
   const rot = v.dist*2.2;
   drawWheel(-L*0.32, 0, wr, rot); drawWheel(L*0.32, 0, wr, rot);
+  }
   // wheelspin smoke
-  if(v.wheelSpin>0 && Math.random()<0.7) spawnPart(x-L*0.2, 8, "smoke");
+  if(v.wheelSpin>0 && Math.random()<0.7) spawnPart(x+smokeOff, 8, "smoke");
   // nitro flame
   if(v.nitroOn && v.nitro>0 && v.speed>4){
     ctx.fillStyle="#3aa0ff"; ctx.beginPath();
-    ctx.moveTo(-L/2-4*s,-8*s); ctx.lineTo(-L/2-30*s-Math.random()*18*s,-2*s); ctx.lineTo(-L/2-4*s,4*s); ctx.fill();
+    ctx.moveTo(backX-4*s,-8*s); ctx.lineTo(backX-30*s-Math.random()*18*s,-2*s); ctx.lineTo(backX-4*s,4*s); ctx.fill();
     ctx.fillStyle="#ffd23a"; ctx.beginPath();
-    ctx.moveTo(-L/2-4*s,-5*s); ctx.lineTo(-L/2-20*s-Math.random()*10*s,-2*s); ctx.lineTo(-L/2-4*s,1*s); ctx.fill();
+    ctx.moveTo(backX-4*s,-5*s); ctx.lineTo(backX-20*s-Math.random()*10*s,-2*s); ctx.lineTo(backX-4*s,1*s); ctx.fill();
   }
   ctx.restore();
 }
@@ -620,13 +657,16 @@ function loop(ts){
   if(R && !R.resultShown){ update(dt); render(); hud(); }
 }
 requestAnimationFrame(loop);
-// AUTO demo: drive the menus too
+// AUTO demo: drive the menus too (waits for sprite art)
+try{ loadSprites(); }catch(e){ spritesReady=true; }
 if(AUTO){
   const AUTOPP = Math.max(0, Math.min(3, parseInt(new URLSearchParams(location.search).get("opp")||"2", 10)||0));
-  setTimeout(()=>{ $("btn-start").click();
+  const go=()=>{ if(!spritesReady){ setTimeout(go,250); return; }
+    $("btn-start").click();
     setTimeout(()=>{ const cards=document.querySelectorAll(".card"); cards[AUTOPP].click();
       setTimeout(()=>$("btn-stage").click(), 400); }, 400);
-  }, 600);
+  };
+  setTimeout(go, 600);
 }
 </script>
 </body>
