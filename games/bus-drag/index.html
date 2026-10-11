@@ -475,10 +475,10 @@ function drawWheel(x,y,r,rot){
     ctx.lineTo(Math.cos(i*1.256)*r*0.5, Math.sin(i*1.256)*r*0.5); ctx.stroke(); }
   ctx.restore();
 }
-function drawVehicle(v, baseX){
-  const s=1.35, x=baseX, y=478, cfg=v.cfg;
+function drawVehicle(v, baseX, laneY, sc){
+  const s=sc||1.35, x=baseX, y=(laneY===undefined?478:laneY), cfg=v.cfg;
   const wob = v.limiter ? Math.sin(R.t*70)*2 : 0;
-  ctx.save(); ctx.translate(x, wob);
+  ctx.save(); ctx.translate(x, y + wob);
   const L=150*s, Hh=64*s;
   // shadow
   ctx.fillStyle="rgba(0,0,0,.35)"; ctx.beginPath(); ctx.ellipse(0,6*s,L*0.55,10*s,0,0,7); ctx.fill();
@@ -564,9 +564,9 @@ function render(){
   drawBackground();
   const px=300;
   const ox = px + (R.O.dist-R.P.dist)*PX_M;
-  // draw order: whoever is behind first
-  if(R.O.dist<=R.P.dist){ drawVehicle(R.O, ox); drawVehicle(R.P, px); }
-  else { drawVehicle(R.P, px); drawVehicle(R.O, ox); }
+  // two lanes: player near/lower, opponent far/upper and slightly smaller
+  if(R.O.dist<=R.P.dist){ drawVehicle(R.O, ox, 446, 1.12); drawVehicle(R.P, px, 478, 1.35); }
+  else { drawVehicle(R.P, px, 478, 1.35); drawVehicle(R.O, ox, 446, 1.12); }
   drawParts();
   drawTree();
   // countdown / state text handled in DOM #msg
@@ -595,10 +595,10 @@ function showResult(){
     ? `<div class="win">🏆 YOU WIN!</div><div class="zinnga">ZINNGA!!!</div>`
     : `<div class="lose">😤 ${O.cfg.name.toUpperCase()} TAKES IT</div>`;
   $("resultimg").src = win ? IMG_T : IMG_B;
-  const best = localStorage.getItem("sbs-best-"+O.id);
+  const best = localStorage.getItem("sbs-best-"+O.cfg.id);
   const et = P.et||99;
   let bestLine="";
-  if(!best || et < parseFloat(best)){ localStorage.setItem("sbs-best-"+O.id, et.toFixed(2)); bestLine=" — NEW BEST!"; }
+  if(!best || et < parseFloat(best)){ localStorage.setItem("sbs-best-"+O.cfg.id, et.toFixed(2)); bestLine=" — NEW BEST!"; }
   $("restable").innerHTML = `
     <tr><td>Opponent</td><td>${O.cfg.name}</td></tr>
     <tr><td>Your reaction</td><td>${P.reaction.toFixed(2)} s${P.launchPenalty?" (false start!)":""}</td></tr>
